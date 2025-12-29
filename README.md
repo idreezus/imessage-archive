@@ -117,7 +117,8 @@ mymessage/
 ├── dist-electron/               # TypeScript build output (main)
 │   └── package.json             # Forces CommonJS in ESM project
 │
-├── chat.db                      # Development database (gitignored)
+├── data/
+│   └── chat.db                  # Development database (gitignored)
 ├── package.json
 ├── vite.config.ts
 └── tsconfig.json
@@ -199,10 +200,11 @@ npx @electron/rebuild
 
 ### Development Database
 
-For development, copy your iMessage database to the project root:
+For development, copy your iMessage database to the data directory:
 
 ```bash
-cp ~/Library/Messages/chat.db ./chat.db
+mkdir -p data
+cp ~/Library/Messages/chat.db ./data/chat.db
 ```
 
 > **Note**: The database is gitignored. In production, the app reads from `~/Library/Messages/chat.db` directly.
@@ -333,7 +335,7 @@ type Message = {
 ### "Database not initialized" error
 
 The app couldn't open chat.db. Check:
-1. `chat.db` exists in project root (dev) or `~/Library/Messages/` (prod)
+1. `chat.db` exists in `data/` directory (dev) or `~/Library/Messages/` (prod)
 2. File permissions allow reading
 3. Database isn't locked by another process
 

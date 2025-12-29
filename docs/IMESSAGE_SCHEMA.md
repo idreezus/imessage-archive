@@ -211,6 +211,71 @@ WHERE key = 'counter_in_all';
 
 ---
 
+## Reactions (Tapbacks)
+
+Reactions are stored as separate messages with special `associated_message_type` values.
+
+### Key Fields
+
+| Column | Type | Description |
+|--------|------|-------------|
+| associated_message_guid | TEXT | Target message in format `p:N/GUID` |
+| associated_message_type | INTEGER | Reaction type code (see below) |
+| associated_message_emoji | TEXT | Custom emoji (iOS 17+, NULL for standard) |
+
+### GUID Format
+
+The `associated_message_guid` field uses format `p:N/GUID` where:
+- `p:` is a literal prefix
+- `N` is the message part index (usually `0`)
+- `GUID` is the target message's guid
+
+**Example**: `p:0/7B18EB94-1930-49CF-9E5C-C9BA39EEDF4F`
+
+To match reactions to messages, extract the GUID portion:
+```sql
+SUBSTR(associated_message_guid, INSTR(associated_message_guid, '/') + 1)
+```
+
+### Reaction Type Codes
+
+| Value | Emoji | Meaning |
+|-------|-------|---------|
+| 2000 | ❤️ | Love |
+| 2001 | 👍 | Like |
+| 2002 | 👎 | Dislike |
+| 2003 | 😂 | Laugh |
+| 2004 | ‼️ | Emphasize |
+| 2005 | ❓ | Question |
+| 3000-3005 | — | Remove corresponding reaction |
+
+### Query Example
+
+```sql
+-- Fetch reactions for specific messages
+SELECT
+  SUBSTR(r.associated_message_guid, INSTR(r.associated_message_guid, '/') + 1) as target_guid,
+  r.associated_message_type as reaction_type,
+  r.associated_message_emoji as custom_emoji,
+  r.is_from_me,
+  h.id as reactor
+FROM message r
+LEFT JOIN handle h ON r.handle_id = h.ROWID
+WHERE SUBSTR(r.associated_message_guid, INSTR(r.associated_message_guid, '/') + 1)
+      IN ('GUID1', 'GUID2')
+  AND r.associated_message_type >= 2000
+ORDER BY r.date ASC;
+```
+
+### Handling Removals
+
+When a user removes a reaction, a new message is created with type `3000-3005`. To get the final state:
+1. Fetch all reactions (2000+) for target messages
+2. Track additions and removals by reactor + reaction type
+3. Filter out reactions that have a later removal
+
+---
+
 ## Future Sections
 
 <!-- TODO: Document these tables as features are implemented -->
@@ -219,6 +284,5 @@ WHERE key = 'counter_in_all';
 - `message_attachment_join` - Links attachments to messages
 - `chat_recoverable_message_join` - Recently deleted messages
 - Sticker packs and sticker messages
-- Tapback/reaction details
 - Link previews
 - Message effects (bubble/screen effects)

@@ -29,6 +29,87 @@ class DatabaseService {
     close() {
         this.db.close();
     }
+    // Fetch reactions for a list of message GUIDs.
+    // Note: associated_message_guid has format "p:N/GUID" where N is the part index
+    getReactionsForMessages(messageGuids) {
+        if (messageGuids.length === 0)
+            return [];
+        const placeholders = messageGuids.map(() => '?').join(',');
+        const stmt = this.db.prepare(`
+      SELECT
+        r.ROWID as rowid,
+        r.guid,
+        SUBSTR(r.associated_message_guid, INSTR(r.associated_message_guid, '/') + 1) as targetMessageGuid,
+        r.associated_message_type as reactionType,
+        r.associated_message_emoji as customEmoji,
+        r.is_from_me as isFromMe,
+        r.date,
+        h.id as reactorIdentifier,
+        h.service as reactorService
+      FROM message r
+      LEFT JOIN handle h ON r.handle_id = h.ROWID
+      WHERE SUBSTR(r.associated_message_guid, INSTR(r.associated_message_guid, '/') + 1) IN (${placeholders})
+        AND r.associated_message_type >= 2000
+      ORDER BY r.date ASC
+    `);
+        return stmt.all(...messageGuids);
+    }
+    // Process raw reactions: filter removals, group by target message.
+    processReactions(reactionRows) {
+        // Track reactions by target message and reactor+type key
+        const reactionState = new Map();
+        for (const row of reactionRows) {
+            const targetGuid = row.targetMessageGuid;
+            const isRemoval = row.reactionType >= 3000;
+            const effectiveType = isRemoval ? row.reactionType - 1000 : row.reactionType;
+            // Create unique key for reactor + reaction type combination
+            const reactorKey = row.isFromMe
+                ? `me:${effectiveType}`
+                : `${row.reactorIdentifier}:${effectiveType}`;
+            if (!reactionState.has(targetGuid)) {
+                reactionState.set(targetGuid, new Map());
+            }
+            const messageReactions = reactionState.get(targetGuid);
+            if (isRemoval) {
+                // Mark as removed if exists
+                if (messageReactions.has(reactorKey)) {
+                    messageReactions.get(reactorKey).removed = true;
+                }
+            }
+            else {
+                // Add or update reaction (later additions override earlier ones)
+                messageReactions.set(reactorKey, {
+                    reaction: {
+                        rowid: row.rowid,
+                        guid: row.guid,
+                        type: effectiveType,
+                        customEmoji: row.customEmoji,
+                        isFromMe: row.isFromMe === 1,
+                        date: appleToJsTimestamp(row.date),
+                        reactor: row.reactorIdentifier
+                            ? {
+                                identifier: row.reactorIdentifier,
+                                service: row.reactorService ?? 'iMessage',
+                            }
+                            : null,
+                    },
+                    removed: false,
+                });
+            }
+        }
+        // Convert to final format, filtering out removed reactions
+        const result = new Map();
+        for (const [guid, reactions] of reactionState) {
+            const activeReactions = Array.from(reactions.values())
+                .filter((r) => !r.removed)
+                .map((r) => r.reaction)
+                .sort((a, b) => a.date - b.date);
+            if (activeReactions.length > 0) {
+                result.set(guid, activeReactions);
+            }
+        }
+        return result;
+    }
     // Fetch participants (handles) for a given chat.
     getParticipantsForChat(chatId) {
         const stmt = this.db.prepare(`
@@ -112,6 +193,7 @@ class DatabaseService {
       JOIN chat_message_join cmj ON m.ROWID = cmj.message_id
       LEFT JOIN handle h ON m.handle_id = h.ROWID
       WHERE cmj.chat_id = ?
+        AND (m.associated_message_type IS NULL OR m.associated_message_type = 0)
     `;
         const params = [chatId];
         // Add cursor filter for pagination
@@ -127,7 +209,11 @@ class DatabaseService {
         const rows = stmt.all(...params);
         const hasMore = rows.length > limit;
         const messageRows = hasMore ? rows.slice(0, limit) : rows;
-        // Transform rows to API response format
+        // Fetch reactions for these messages
+        const messageGuids = messageRows.map((row) => row.guid);
+        const reactionRows = this.getReactionsForMessages(messageGuids);
+        const reactionsByGuid = this.processReactions(reactionRows);
+        // Transform rows to API response format with reactions
         const messages = messageRows.map((row) => ({
             rowid: row.rowid,
             guid: row.guid,
@@ -143,6 +229,7 @@ class DatabaseService {
                     service: row.handleService ?? "iMessage",
                 }
                 : undefined,
+            reactions: reactionsByGuid.get(row.guid) ?? [],
         }));
         // Reverse to chronological order (oldest first for display)
         return {

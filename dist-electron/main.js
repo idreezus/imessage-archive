@@ -44,8 +44,8 @@ function getDatabasePath() {
         // Production: actual iMessage database location
         return path.join(electron_1.app.getPath("home"), "Library/Messages/chat.db");
     }
-    // Development: local copy in project root
-    return path.join(__dirname, "..", "chat.db");
+    // Development: local copy in data directory
+    return path.join(__dirname, "..", "data", "chat.db");
 }
 // Create the main application window.
 function createWindow() {
