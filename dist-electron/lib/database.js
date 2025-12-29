@@ -29,6 +29,128 @@ class DatabaseService {
     close() {
         this.db.close();
     }
+    // Expose database instance for search index building.
+    getDb() {
+        return this.db;
+    }
+    // Fetch all unique handles for autocomplete.
+    getAllHandles() {
+        const stmt = this.db.prepare(`
+      SELECT DISTINCT
+        h.ROWID as rowid,
+        h.id,
+        h.service
+      FROM handle h
+      ORDER BY h.id
+    `);
+        return stmt.all();
+    }
+    // Fetch all chats for filter dropdown.
+    getAllChats() {
+        const stmt = this.db.prepare(`
+      SELECT
+        c.ROWID as rowid,
+        c.display_name as displayName,
+        c.chat_identifier as chatIdentifier,
+        c.style
+      FROM chat c
+      ORDER BY c.display_name, c.chat_identifier
+    `);
+        const rows = stmt.all();
+        return rows.map(row => ({
+            rowid: row.rowid,
+            displayName: row.displayName,
+            chatIdentifier: row.chatIdentifier,
+            isGroup: row.style === 43,
+        }));
+    }
+    // Fetch messages around a specific date for scroll-to navigation.
+    getMessagesAroundDate(chatId, targetDate, contextCount = 25) {
+        const appleTargetDate = jsToAppleTimestamp(targetDate);
+        // Get messages before target (older)
+        const beforeQuery = `
+      SELECT
+        m.ROWID as rowid,
+        m.guid,
+        m.text,
+        m.handle_id as handleId,
+        m.date,
+        m.is_from_me as isFromMe,
+        m.service,
+        h.id as handleIdentifier,
+        h.service as handleService
+      FROM message m
+      JOIN chat_message_join cmj ON m.ROWID = cmj.message_id
+      LEFT JOIN handle h ON m.handle_id = h.ROWID
+      WHERE cmj.chat_id = ?
+        AND (m.associated_message_type IS NULL OR m.associated_message_type = 0)
+        AND m.date <= ?
+      ORDER BY m.date DESC
+      LIMIT ?
+    `;
+        // Get messages after target (newer)
+        const afterQuery = `
+      SELECT
+        m.ROWID as rowid,
+        m.guid,
+        m.text,
+        m.handle_id as handleId,
+        m.date,
+        m.is_from_me as isFromMe,
+        m.service,
+        h.id as handleIdentifier,
+        h.service as handleService
+      FROM message m
+      JOIN chat_message_join cmj ON m.ROWID = cmj.message_id
+      LEFT JOIN handle h ON m.handle_id = h.ROWID
+      WHERE cmj.chat_id = ?
+        AND (m.associated_message_type IS NULL OR m.associated_message_type = 0)
+        AND m.date > ?
+      ORDER BY m.date ASC
+      LIMIT ?
+    `;
+        const beforeRows = this.db
+            .prepare(beforeQuery)
+            .all(chatId, appleTargetDate, contextCount + 1);
+        const afterRows = this.db
+            .prepare(afterQuery)
+            .all(chatId, appleTargetDate, contextCount);
+        // Combine and sort chronologically
+        const allRows = [...beforeRows.reverse(), ...afterRows];
+        // Get reactions for all messages
+        const messageGuids = allRows.map(row => row.guid);
+        const reactionRows = this.getReactionsForMessages(messageGuids);
+        const reactionsByGuid = this.processReactions(reactionRows);
+        // Transform to Message format
+        const messages = allRows.map(row => ({
+            rowid: row.rowid,
+            guid: row.guid,
+            text: row.text,
+            handleId: row.handleId,
+            date: appleToJsTimestamp(row.date),
+            isFromMe: row.isFromMe === 1,
+            service: row.service,
+            senderHandle: row.handleIdentifier
+                ? {
+                    rowid: row.handleId ?? 0,
+                    id: row.handleIdentifier,
+                    service: row.handleService ?? "iMessage",
+                }
+                : undefined,
+            reactions: reactionsByGuid.get(row.guid) ?? [],
+        }));
+        // Find index of target message (closest to targetDate)
+        let targetIndex = 0;
+        let minDiff = Infinity;
+        for (let i = 0; i < messages.length; i++) {
+            const diff = Math.abs(messages[i].date - targetDate);
+            if (diff < minDiff) {
+                minDiff = diff;
+                targetIndex = i;
+            }
+        }
+        return { messages, targetIndex };
+    }
     // Fetch reactions for a list of message GUIDs.
     // Note: associated_message_guid has format "p:N/GUID" where N is the part index
     getReactionsForMessages(messageGuids) {

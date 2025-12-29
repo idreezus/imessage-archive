@@ -8,7 +8,8 @@
       "WebFetch(domain:ui.shadcn.com)",
       "WebFetch(domain:www.electronjs.org)",
       "Bash(npx tsc:*)",
-      "WebFetch(domain:www.radix-ui.com)"
+      "WebFetch(domain:www.radix-ui.com)",
+      "mcp__ide__getDiagnostics"
     ]
   }
 }

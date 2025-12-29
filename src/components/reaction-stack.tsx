@@ -37,9 +37,9 @@ export function ReactionStack({
             // Negative margin for overlap effect (skip first)
             index > 0 && (isFromMe ? '-mr-1.5' : '-ml-1.5'),
             // Z-index stacking (first reaction on top)
-            index === 0 && 'z-[3]',
-            index === 1 && 'z-[2]',
-            index === 2 && 'z-[1]'
+            index === 0 && 'z-3',
+            index === 1 && 'z-2',
+            index === 2 && 'z-1'
           )}
         />
       ))}

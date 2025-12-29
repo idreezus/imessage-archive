@@ -12,6 +12,21 @@ type MessagesOptions = {
   beforeDate?: number;
 };
 
+type SearchOptions = {
+  query: string;
+  dateFrom?: number;
+  dateTo?: number;
+  senders?: string[];
+  chatType?: "all" | "dm" | "group";
+  direction?: "all" | "sent" | "received";
+  service?: "all" | "iMessage" | "SMS" | "RCS";
+  hasAttachment?: boolean;
+  specificChat?: number;
+  regexMode?: boolean;
+  limit?: number;
+  offset?: number;
+};
+
 // Electron API bridge exposed to renderer via window.electronAPI.
 const electronAPI = {
   // Fetch paginated list of conversations
@@ -34,6 +49,17 @@ const electronAPI = {
   setTheme: (theme: "light" | "dark" | "system") =>
     ipcRenderer.invoke("theme:set", theme) as Promise<boolean>,
   shouldUseDarkColors: () => ipcRenderer.invoke("theme:shouldUseDarkColors") as Promise<boolean>,
+
+  // Search API
+  search: (options: SearchOptions) => ipcRenderer.invoke("search:query", options),
+  getSearchStatus: () => ipcRenderer.invoke("search:status"),
+  rebuildSearchIndex: () => ipcRenderer.invoke("search:rebuild"),
+  getHandles: () => ipcRenderer.invoke("search:get-handles"),
+  getChatsForFilter: () => ipcRenderer.invoke("search:get-chats"),
+
+  // Get messages around a specific date (for scroll-to navigation)
+  getMessagesAroundDate: (chatId: number, targetDate: number, contextCount?: number) =>
+    ipcRenderer.invoke("db:get-messages-around-date", { chatId, targetDate, contextCount }),
 };
 
 // Expose API to renderer process securely

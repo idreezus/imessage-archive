@@ -13,6 +13,7 @@ type UseMessagesReturn = {
   hasMore: boolean;
   loadMore: () => void;
   refresh: () => void;
+  setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
 };
 
 // Fetch and manage messages for a conversation with cursor pagination.
@@ -111,5 +112,6 @@ export function useMessages(options: UseMessagesOptions): UseMessagesReturn {
     hasMore,
     loadMore,
     refresh,
+    setMessages,
   };
 }

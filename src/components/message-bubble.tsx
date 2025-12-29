@@ -8,6 +8,7 @@ type MessageBubbleProps = {
   message: Message;
   showTimestamp: boolean;
   isGroupChat: boolean;
+  isHighlighted?: boolean;
 };
 
 // Format timestamp as time string (e.g., "2:30 PM").
@@ -48,13 +49,19 @@ export function MessageBubble({
   message,
   showTimestamp,
   isGroupChat,
+  isHighlighted = false,
 }: MessageBubbleProps) {
   const [showReactionDetails, setShowReactionDetails] = useState(false);
   const isFromMe = message.isFromMe;
   const hasReactions = message.reactions && message.reactions.length > 0;
 
   return (
-    <div className="space-y-1">
+    <div
+      className={cn(
+        'space-y-1 transition-all duration-300',
+        isHighlighted && 'bg-primary/10 -mx-2 px-2 py-1 rounded-lg ring-2 ring-primary/30'
+      )}
+    >
       {/* Timestamp divider for message gaps */}
       {showTimestamp && (
         <div className="flex justify-center py-2">

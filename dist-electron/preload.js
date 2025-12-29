@@ -15,6 +15,14 @@ const electronAPI = {
     getTheme: () => electron_1.ipcRenderer.invoke("theme:get"),
     setTheme: (theme) => electron_1.ipcRenderer.invoke("theme:set", theme),
     shouldUseDarkColors: () => electron_1.ipcRenderer.invoke("theme:shouldUseDarkColors"),
+    // Search API
+    search: (options) => electron_1.ipcRenderer.invoke("search:query", options),
+    getSearchStatus: () => electron_1.ipcRenderer.invoke("search:status"),
+    rebuildSearchIndex: () => electron_1.ipcRenderer.invoke("search:rebuild"),
+    getHandles: () => electron_1.ipcRenderer.invoke("search:get-handles"),
+    getChatsForFilter: () => electron_1.ipcRenderer.invoke("search:get-chats"),
+    // Get messages around a specific date (for scroll-to navigation)
+    getMessagesAroundDate: (chatId, targetDate, contextCount) => electron_1.ipcRenderer.invoke("db:get-messages-around-date", { chatId, targetDate, contextCount }),
 };
 // Expose API to renderer process securely
 electron_1.contextBridge.exposeInMainWorld("electronAPI", electronAPI);
