@@ -14,6 +14,8 @@ type UseMessagesReturn = {
   loadMore: () => void;
   refresh: () => void;
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
+  /** The chatId these messages belong to (for consistency checking) */
+  loadedChatId: number | null;
 };
 
 // Fetch and manage messages for a conversation with cursor pagination.
@@ -24,6 +26,7 @@ export function useMessages(options: UseMessagesOptions): UseMessagesReturn {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [hasMore, setHasMore] = useState(false);
+  const [loadedChatId, setLoadedChatId] = useState<number | null>(null);
 
   // Track oldest message date for cursor pagination
   const oldestDateRef = useRef<number | undefined>(undefined);
@@ -52,6 +55,7 @@ export function useMessages(options: UseMessagesOptions): UseMessagesReturn {
         }
 
         setHasMore(result.hasMore);
+        setLoadedChatId(opts.chatId);
 
         // Track oldest message date for pagination cursor
         if (result.messages.length > 0) {
@@ -75,11 +79,18 @@ export function useMessages(options: UseMessagesOptions): UseMessagesReturn {
     if (chatId === null) {
       setMessages([]);
       setHasMore(false);
+      setLoadedChatId(null);
       oldestDateRef.current = undefined;
       return;
     }
 
+    // CRITICAL: Clear old messages IMMEDIATELY to prevent stale render
+    // This ensures we never show old chat's messages with new chat's styling
+    setMessages([]);
+    setHasMore(false);
+    setLoadedChatId(null);
     oldestDateRef.current = undefined;
+
     fetchMessages({ chatId, limit: initialLimit });
   }, [chatId, initialLimit, fetchMessages]);
 
@@ -113,5 +124,6 @@ export function useMessages(options: UseMessagesOptions): UseMessagesReturn {
     loadMore,
     refresh,
     setMessages,
+    loadedChatId,
   };
 }

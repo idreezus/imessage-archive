@@ -1,5 +1,4 @@
-import { useRef, useEffect, useCallback, useState } from 'react';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { useRef, useEffect, useCallback, useState, useLayoutEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { MessageBubble } from '@/components/message-bubble';
 import { ConversationHeader } from '@/components/conversation-header';
@@ -18,7 +17,7 @@ export function MessageThread({
   targetMessageRowid,
   onScrollComplete,
 }: MessageThreadProps) {
-  const { messages, isLoading, hasMore, loadMore, setMessages } = useMessages({
+  const { messages, isLoading, hasMore, loadMore, setMessages, loadedChatId } = useMessages({
     chatId: conversation?.rowid ?? null,
   });
 
@@ -28,28 +27,71 @@ export function MessageThread({
   const [highlightedRowid, setHighlightedRowid] = useState<number | null>(null);
   const [isLoadingTarget, setIsLoadingTarget] = useState(false);
 
-  // Scroll to bottom on conversation change (but not when targeting a specific message)
-  useEffect(() => {
-    if (!targetMessageRowid) {
-      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  // Track scroll position for load-more preservation
+  const prevScrollHeightRef = useRef<number>(0);
+  const isLoadingMoreRef = useRef(false);
+
+  // Check if data is consistent (messages belong to current conversation)
+  const isDataReady = conversation !== null && loadedChatId === conversation.rowid;
+
+  // Scroll to bottom using the sentinel div - more reliable than scrollHeight
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'instant') => {
+    // Use scrollIntoView on sentinel div - most reliable cross-browser method
+    bottomRef.current?.scrollIntoView({
+      behavior,
+      block: 'end',
+    });
+  }, []);
+
+  // Scroll to bottom when messages first load for a conversation (not on load-more)
+  useLayoutEffect(() => {
+    if (!isDataReady || targetMessageRowid) return;
+
+    // Don't scroll to bottom if we're loading more (prepending older messages)
+    if (isLoadingMoreRef.current) {
+      // Preserve scroll position when prepending
+      const el = scrollContainerRef.current;
+      if (el && prevScrollHeightRef.current > 0) {
+        const heightDiff = el.scrollHeight - prevScrollHeightRef.current;
+        el.scrollTop += heightDiff;
+      }
+      prevScrollHeightRef.current = 0;
+      isLoadingMoreRef.current = false;
+      return;
     }
-  }, [conversation?.rowid, targetMessageRowid]);
 
-  // Handle target message scrolling
+    // Initial load or conversation switch - scroll to bottom
+    // Use requestAnimationFrame to ensure DOM is fully painted
+    requestAnimationFrame(() => {
+      scrollToBottom('instant');
+    });
+  }, [isDataReady, messages, targetMessageRowid, scrollToBottom]);
+
+  // Handle scroll for infinite loading
+  const handleScroll = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el || isLoading || !hasMore || !isDataReady) return;
+
+    // Near top = load more older messages
+    if (el.scrollTop < 100) {
+      prevScrollHeightRef.current = el.scrollHeight;
+      isLoadingMoreRef.current = true;
+      loadMore();
+    }
+  }, [isLoading, hasMore, isDataReady, loadMore]);
+
+  // Handle target message scrolling (search result navigation)
   useEffect(() => {
-    if (!targetMessageRowid || !conversation) return;
+    if (!targetMessageRowid || !conversation || !isDataReady) return;
 
-    // Check if the target message is already in the loaded messages
     const existingMessage = messages.find((m) => m.rowid === targetMessageRowid);
 
     if (existingMessage) {
-      // Message is loaded, scroll to it
       const element = messageRefs.current.get(targetMessageRowid);
       if (element) {
         element.scrollIntoView({ behavior: 'smooth', block: 'center' });
         setHighlightedRowid(targetMessageRowid);
 
-        // Remove highlight after animation
         const timer = setTimeout(() => {
           setHighlightedRowid(null);
           onScrollComplete?.();
@@ -58,21 +100,17 @@ export function MessageThread({
         return () => clearTimeout(timer);
       }
     } else {
-      // Message not loaded, fetch messages around the target date
-      // We need to find the target message's date first by searching
+      // Message not loaded, fetch messages around the target
       setIsLoadingTarget(true);
 
-      // Load messages around the target
       window.electronAPI
         .getMessagesAroundDate(conversation.rowid, Date.now(), 50)
         .then((result) => {
-          // Find the target in the result
           const targetMessage = result.messages.find(
             (m) => m.rowid === targetMessageRowid
           );
 
           if (targetMessage) {
-            // Reload messages around the target message's date
             return window.electronAPI.getMessagesAroundDate(
               conversation.rowid,
               targetMessage.date,
@@ -80,14 +118,12 @@ export function MessageThread({
             );
           }
 
-          // If not found, try loading more
           return result;
         })
         .then((result) => {
           if (result.messages.length > 0) {
             setMessages(result.messages);
 
-            // Wait for render and then scroll
             requestAnimationFrame(() => {
               const element = messageRefs.current.get(targetMessageRowid);
               if (element) {
@@ -112,17 +148,7 @@ export function MessageThread({
           setIsLoadingTarget(false);
         });
     }
-  }, [targetMessageRowid, conversation, messages, setMessages, onScrollComplete]);
-
-  // Load older messages when scrolled near top.
-  const handleScroll = useCallback(() => {
-    const el = scrollContainerRef.current;
-    if (!el || isLoading || !hasMore) return;
-
-    if (el.scrollTop < 100) {
-      loadMore();
-    }
-  }, [isLoading, hasMore, loadMore]);
+  }, [targetMessageRowid, conversation, messages, setMessages, onScrollComplete, isDataReady]);
 
   // Track message element refs
   const setMessageRef = useCallback((rowid: number, element: HTMLDivElement | null) => {
@@ -142,66 +168,78 @@ export function MessageThread({
     );
   }
 
+  // Loading state while fetching messages for new conversation
+  const showLoading = !isDataReady || isLoadingTarget;
+
   return (
     <div className="flex flex-col h-full">
       <ConversationHeader conversation={conversation} />
 
       {/* Messages scroll area */}
-      <ScrollArea
-        className="flex-1 p-4"
+      <div
+        className="flex-1 overflow-y-auto p-4"
         ref={scrollContainerRef}
-        onScrollCapture={handleScroll}
+        onScroll={handleScroll}
       >
-        {/* Load more indicator at top */}
-        {hasMore && (
-          <div className="flex justify-center py-2">
-            {isLoading ? (
-              <Skeleton className="h-4 w-24" />
-            ) : (
-              <button
-                onClick={loadMore}
-                className="text-xs text-muted-foreground hover:text-foreground"
-              >
-                Load earlier messages
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Loading indicator when fetching target message */}
-        {isLoadingTarget && (
-          <div className="flex justify-center py-4">
-            <Skeleton className="h-4 w-32" />
-          </div>
-        )}
-
-        {/* Message list */}
-        <div className="space-y-4">
-          {messages.map((message, index) => {
-            const prevMessage = messages[index - 1];
-            // Show timestamp divider for gaps over 1 hour
-            const showTimestamp =
-              !prevMessage || message.date - prevMessage.date > 3600000;
-
-            return (
-              <div
-                key={message.rowid}
-                ref={(el) => setMessageRef(message.rowid, el)}
-              >
-                <MessageBubble
-                  message={message}
-                  showTimestamp={showTimestamp}
-                  isGroupChat={conversation.isGroup}
-                  isHighlighted={highlightedRowid === message.rowid}
-                />
+        {showLoading ? (
+          // Loading skeleton while fetching messages
+          <div className="space-y-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className={`flex ${i % 2 === 0 ? 'justify-end' : 'justify-start'}`}>
+                <Skeleton className={`h-12 ${i % 3 === 0 ? 'w-48' : 'w-32'} rounded-2xl`} />
               </div>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <>
+            {/* Load more indicator at top */}
+            {hasMore && (
+              <div className="flex justify-center py-2">
+                {isLoading ? (
+                  <Skeleton className="h-4 w-24" />
+                ) : (
+                  <button
+                    onClick={() => {
+                      prevScrollHeightRef.current = scrollContainerRef.current?.scrollHeight ?? 0;
+                      isLoadingMoreRef.current = true;
+                      loadMore();
+                    }}
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    Load earlier messages
+                  </button>
+                )}
+              </div>
+            )}
 
-        {/* Scroll anchor for auto-scroll to bottom */}
-        <div ref={bottomRef} />
-      </ScrollArea>
+            {/* Message list */}
+            <div className="space-y-4">
+              {messages.map((message, index) => {
+                const prevMessage = messages[index - 1];
+                const showTimestamp =
+                  !prevMessage || message.date - prevMessage.date > 3600000;
+
+                return (
+                  <div
+                    key={message.rowid}
+                    ref={(el) => setMessageRef(message.rowid, el)}
+                  >
+                    <MessageBubble
+                      message={message}
+                      showTimestamp={showTimestamp}
+                      isGroupChat={conversation.isGroup}
+                      isHighlighted={highlightedRowid === message.rowid}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Sentinel div for scrollIntoView - invisible anchor at bottom */}
+            <div ref={bottomRef} />
+          </>
+        )}
+      </div>
     </div>
   );
 }

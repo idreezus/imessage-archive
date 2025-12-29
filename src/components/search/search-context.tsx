@@ -1,17 +1,26 @@
-import { createContext, useContext, ReactNode, useState, useCallback, useRef, useEffect, useMemo } from "react";
-import { LRUCache } from "@/lib/lru-cache";
+import {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useRef,
+  useEffect,
+  useMemo,
+} from 'react';
+import type { ReactNode } from 'react';
+import { LRUCache } from '@/lib/lru-cache';
 import type {
   SearchFilters,
   SearchResultItem,
   SearchResponse,
   DatePreset,
-} from "@/types/search";
+} from '@/types/search';
 import {
   defaultSearchFilters,
   filtersToSearchOptions,
   getDateRangeFromPreset,
   countActiveFilters,
-} from "@/types/search";
+} from '@/types/search';
 
 const DEBOUNCE_MS = 150;
 const CACHE_SIZE = 20;
@@ -32,12 +41,14 @@ type SearchContextValue = {
   // Actions
   setQuery: (query: string) => void;
   setDateRange: (
-    range: { from: Date | null; to: Date | null; preset: DatePreset | null } | DatePreset
+    range:
+      | { from: Date | null; to: Date | null; preset: DatePreset | null }
+      | DatePreset
   ) => void;
   setSenders: (senders: string[]) => void;
-  setChatType: (chatType: "all" | "dm" | "group") => void;
-  setDirection: (direction: "all" | "sent" | "received") => void;
-  setService: (service: "all" | "iMessage" | "SMS" | "RCS") => void;
+  setChatType: (chatType: 'all' | 'dm' | 'group') => void;
+  setDirection: (direction: 'all' | 'sent' | 'received') => void;
+  setService: (service: 'all' | 'iMessage' | 'SMS' | 'RCS') => void;
   setHasAttachment: (hasAttachment: boolean | null) => void;
   setSpecificChat: (specificChat: number | null) => void;
   setRegexMode: (regexMode: boolean) => void;
@@ -55,7 +66,7 @@ const SearchContext = createContext<SearchContextValue | null>(null);
 export function useSearchContext() {
   const context = useContext(SearchContext);
   if (!context) {
-    throw new Error("useSearchContext must be used within a SearchProvider");
+    throw new Error('useSearchContext must be used within a SearchProvider');
   }
   return context;
 }
@@ -82,7 +93,10 @@ export function SearchProvider({ children }: { children: ReactNode }) {
   }, [filters]);
 
   // Count active filters
-  const activeFiltersCount = useMemo(() => countActiveFilters(filters), [filters]);
+  const activeFiltersCount = useMemo(
+    () => countActiveFilters(filters),
+    [filters]
+  );
 
   // Execute search
   const executeSearch = useCallback(
@@ -94,7 +108,11 @@ export function SearchProvider({ children }: { children: ReactNode }) {
       abortControllerRef.current = new AbortController();
 
       // Generate cache key
-      const options = filtersToSearchOptions(searchFilters, DEFAULT_LIMIT, offset);
+      const options = filtersToSearchOptions(
+        searchFilters,
+        DEFAULT_LIMIT,
+        offset
+      );
       const cacheKey = JSON.stringify(options);
 
       // Check cache
@@ -135,7 +153,7 @@ export function SearchProvider({ children }: { children: ReactNode }) {
         setHasMore(response.hasMore);
         currentOffsetRef.current = offset + response.results.length;
       } catch (err) {
-        if (err instanceof Error && err.name !== "AbortError") {
+        if (err instanceof Error && err.name !== 'AbortError') {
           setError(err);
         }
       } finally {
@@ -186,7 +204,7 @@ export function SearchProvider({ children }: { children: ReactNode }) {
         | { from: Date | null; to: Date | null; preset: DatePreset | null }
         | DatePreset
     ) => {
-      if (typeof range === "string") {
+      if (typeof range === 'string') {
         const { from, to } = getDateRangeFromPreset(range);
         setFilters((prev) => ({
           ...prev,
@@ -203,17 +221,20 @@ export function SearchProvider({ children }: { children: ReactNode }) {
     setFilters((prev) => ({ ...prev, senders }));
   }, []);
 
-  const setChatType = useCallback((chatType: "all" | "dm" | "group") => {
+  const setChatType = useCallback((chatType: 'all' | 'dm' | 'group') => {
     setFilters((prev) => ({ ...prev, chatType }));
   }, []);
 
-  const setDirection = useCallback((direction: "all" | "sent" | "received") => {
+  const setDirection = useCallback((direction: 'all' | 'sent' | 'received') => {
     setFilters((prev) => ({ ...prev, direction }));
   }, []);
 
-  const setService = useCallback((service: "all" | "iMessage" | "SMS" | "RCS") => {
-    setFilters((prev) => ({ ...prev, service }));
-  }, []);
+  const setService = useCallback(
+    (service: 'all' | 'iMessage' | 'SMS' | 'RCS') => {
+      setFilters((prev) => ({ ...prev, service }));
+    },
+    []
+  );
 
   const setHasAttachment = useCallback((hasAttachment: boolean | null) => {
     setFilters((prev) => ({ ...prev, hasAttachment }));
@@ -250,28 +271,28 @@ export function SearchProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const removeFilter = useCallback((filterKey: string) => {
-    if (filterKey === "dateRange") {
+    if (filterKey === 'dateRange') {
       setFilters((prev) => ({
         ...prev,
         dateRange: { from: null, to: null, preset: null },
       }));
-    } else if (filterKey.startsWith("sender:")) {
-      const sender = filterKey.replace("sender:", "");
+    } else if (filterKey.startsWith('sender:')) {
+      const sender = filterKey.replace('sender:', '');
       setFilters((prev) => ({
         ...prev,
         senders: prev.senders.filter((s) => s !== sender),
       }));
-    } else if (filterKey === "chatType") {
-      setFilters((prev) => ({ ...prev, chatType: "all" }));
-    } else if (filterKey === "direction") {
-      setFilters((prev) => ({ ...prev, direction: "all" }));
-    } else if (filterKey === "service") {
-      setFilters((prev) => ({ ...prev, service: "all" }));
-    } else if (filterKey === "hasAttachment") {
+    } else if (filterKey === 'chatType') {
+      setFilters((prev) => ({ ...prev, chatType: 'all' }));
+    } else if (filterKey === 'direction') {
+      setFilters((prev) => ({ ...prev, direction: 'all' }));
+    } else if (filterKey === 'service') {
+      setFilters((prev) => ({ ...prev, service: 'all' }));
+    } else if (filterKey === 'hasAttachment') {
       setFilters((prev) => ({ ...prev, hasAttachment: null }));
-    } else if (filterKey === "specificChat") {
+    } else if (filterKey === 'specificChat') {
       setFilters((prev) => ({ ...prev, specificChat: null }));
-    } else if (filterKey === "regexMode") {
+    } else if (filterKey === 'regexMode') {
       setFilters((prev) => ({ ...prev, regexMode: false }));
     }
   }, []);

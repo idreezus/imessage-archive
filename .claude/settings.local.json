@@ -9,7 +9,8 @@
       "WebFetch(domain:www.electronjs.org)",
       "Bash(npx tsc:*)",
       "WebFetch(domain:www.radix-ui.com)",
-      "mcp__ide__getDiagnostics"
+      "mcp__ide__getDiagnostics",
+      "WebSearch"
     ]
   }
 }
