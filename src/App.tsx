@@ -1,9 +1,8 @@
+import { AppLayout } from '@/components/app-layout';
+
+// Root application component.
 export function App() {
-  return (
-    <div className="flex items-center justify-center min-h-screen">
-      <div className="font-medium">Hello World</div>
-    </div>
-  )
+  return <AppLayout />;
 }
 
-export default App
+export default App;

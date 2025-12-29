@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npm run build:electron:*)",
+      "Bash(npm run build:*)",
+      "Bash(timeout 5 electron:*)",
+      "WebFetch(domain:ui.shadcn.com)",
+      "WebFetch(domain:www.electronjs.org)"
+    ]
+  }
+}
