@@ -1,5 +1,7 @@
 import { useRef, useEffect, useCallback, useState, useLayoutEffect } from 'react';
+import { MessageSquare } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Empty, EmptyMedia, EmptyTitle, EmptyDescription } from '@/components/ui/empty';
 import { MessageBubble } from '@/components/message-bubble';
 import { ConversationHeader } from '@/components/conversation-header';
 import { useMessages } from '@/hooks/use-messages';
@@ -162,8 +164,16 @@ export function MessageThread({
   // Empty state when no conversation selected
   if (!conversation) {
     return (
-      <div className="flex-1 flex items-center justify-center text-muted-foreground">
-        Select a conversation to view messages
+      <div className="flex-1 flex items-center justify-center">
+        <Empty>
+          <EmptyMedia variant="icon">
+            <MessageSquare className="size-6" />
+          </EmptyMedia>
+          <EmptyTitle>No conversation selected</EmptyTitle>
+          <EmptyDescription>
+            Select a conversation from the sidebar to view messages
+          </EmptyDescription>
+        </Empty>
       </div>
     );
   }

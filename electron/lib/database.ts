@@ -21,6 +21,11 @@ type HandleRow = {
   service: string;
 };
 
+// Handle row with chat association for batch queries
+type HandleWithChatRow = HandleRow & {
+  chatId: number;
+};
+
 // Conversation row from database query
 type ConversationRow = {
   rowid: number;
@@ -138,33 +143,58 @@ export class DatabaseService {
     return this.db;
   }
 
-  // Fetch all unique handles for autocomplete.
-  getAllHandles(): Handle[] {
-    const stmt = this.db.prepare(`
+  // Fetch handles for autocomplete with optional search and limit.
+  getAllHandles(options: { query?: string; limit?: number } = {}): Handle[] {
+    const { query, limit = 200 } = options;
+
+    let sql = `
       SELECT DISTINCT
         h.ROWID as rowid,
         h.id,
         h.service
       FROM handle h
-      ORDER BY h.id
-    `);
+    `;
 
-    return stmt.all() as HandleRow[];
+    const params: (string | number)[] = [];
+
+    if (query && query.trim()) {
+      sql += ` WHERE h.id LIKE ?`;
+      params.push(`%${query.trim()}%`);
+    }
+
+    sql += ` ORDER BY h.id LIMIT ?`;
+    params.push(limit);
+
+    const stmt = this.db.prepare(sql);
+    return stmt.all(...params) as HandleRow[];
   }
 
-  // Fetch all chats for filter dropdown.
-  getAllChats(): { rowid: number; displayName: string | null; chatIdentifier: string; isGroup: boolean }[] {
-    const stmt = this.db.prepare(`
+  // Fetch chats for filter dropdown with optional search and limit.
+  getAllChats(options: { query?: string; limit?: number } = {}): { rowid: number; displayName: string | null; chatIdentifier: string; isGroup: boolean }[] {
+    const { query, limit = 200 } = options;
+
+    let sql = `
       SELECT
         c.ROWID as rowid,
         c.display_name as displayName,
         c.chat_identifier as chatIdentifier,
         c.style
       FROM chat c
-      ORDER BY c.display_name, c.chat_identifier
-    `);
+    `;
 
-    const rows = stmt.all() as { rowid: number; displayName: string | null; chatIdentifier: string; style: number }[];
+    const params: (string | number)[] = [];
+
+    if (query && query.trim()) {
+      sql += ` WHERE c.display_name LIKE ? OR c.chat_identifier LIKE ?`;
+      const pattern = `%${query.trim()}%`;
+      params.push(pattern, pattern);
+    }
+
+    sql += ` ORDER BY c.display_name, c.chat_identifier LIMIT ?`;
+    params.push(limit);
+
+    const stmt = this.db.prepare(sql);
+    const rows = stmt.all(...params) as { rowid: number; displayName: string | null; chatIdentifier: string; style: number }[];
 
     return rows.map(row => ({
       rowid: row.rowid,
@@ -386,6 +416,76 @@ export class DatabaseService {
     return stmt.all(chatId) as HandleRow[];
   }
 
+  // Batch fetch last message text for multiple chats in a single query.
+  // Returns a Map of chatId -> lastMessageText for efficient lookup.
+  private getLastMessageTexts(chatIds: number[]): Map<number, string | null> {
+    const result = new Map<number, string | null>();
+
+    if (chatIds.length === 0) return result;
+
+    // Use a single efficient query with ROW_NUMBER window function
+    const placeholders = chatIds.map(() => '?').join(',');
+    const stmt = this.db.prepare(`
+      SELECT chat_id, text FROM (
+        SELECT
+          cmj.chat_id,
+          m.text,
+          ROW_NUMBER() OVER (PARTITION BY cmj.chat_id ORDER BY cmj.message_date DESC) as rn
+        FROM chat_message_join cmj
+        JOIN message m ON cmj.message_id = m.ROWID
+        WHERE cmj.chat_id IN (${placeholders})
+      ) WHERE rn = 1
+    `);
+
+    const rows = stmt.all(...chatIds) as { chat_id: number; text: string | null }[];
+
+    for (const row of rows) {
+      result.set(row.chat_id, row.text);
+    }
+
+    return result;
+  }
+
+  // Batch fetch participants for multiple chats in a single query.
+  // Returns a Map of chatId -> Handle[] for efficient lookup.
+  private getParticipantsForChats(chatIds: number[]): Map<number, Handle[]> {
+    const result = new Map<number, Handle[]>();
+
+    if (chatIds.length === 0) return result;
+
+    const placeholders = chatIds.map(() => '?').join(',');
+    const stmt = this.db.prepare(`
+      SELECT
+        h.ROWID as rowid,
+        h.id,
+        h.service,
+        chj.chat_id as chatId
+      FROM handle h
+      JOIN chat_handle_join chj ON h.ROWID = chj.handle_id
+      WHERE chj.chat_id IN (${placeholders})
+    `);
+
+    const rows = stmt.all(...chatIds) as HandleWithChatRow[];
+
+    // Group by chatId
+    for (const row of rows) {
+      const handle: Handle = {
+        rowid: row.rowid,
+        id: row.id,
+        service: row.service,
+      };
+
+      const existing = result.get(row.chatId);
+      if (existing) {
+        existing.push(handle);
+      } else {
+        result.set(row.chatId, [handle]);
+      }
+    }
+
+    return result;
+  }
+
   // Fetch paginated list of conversations with last message preview.
   getConversations(options: ConversationsOptions = {}): {
     conversations: Conversation[];
@@ -398,7 +498,7 @@ export class DatabaseService {
       .prepare(`SELECT COUNT(*) as count FROM chat`)
       .get() as { count: number };
 
-    // Query conversations with last message metadata
+    // Query conversations with last message date (no correlated subquery)
     const stmt = this.db.prepare(`
       SELECT
         c.ROWID as rowid,
@@ -406,15 +506,7 @@ export class DatabaseService {
         c.chat_identifier as chatIdentifier,
         c.display_name as displayName,
         c.style,
-        MAX(m.date) as lastMessageDate,
-        (
-          SELECT text FROM message
-          WHERE ROWID = (
-            SELECT message_id FROM chat_message_join
-            WHERE chat_id = c.ROWID
-            ORDER BY message_date DESC LIMIT 1
-          )
-        ) as lastMessageText
+        MAX(m.date) as lastMessageDate
       FROM chat c
       LEFT JOIN chat_message_join cmj ON c.ROWID = cmj.chat_id
       LEFT JOIN message m ON cmj.message_id = m.ROWID
@@ -423,23 +515,25 @@ export class DatabaseService {
       LIMIT ? OFFSET ?
     `);
 
-    const rows = stmt.all(limit, offset) as ConversationRow[];
+    const rows = stmt.all(limit, offset) as Omit<ConversationRow, 'lastMessageText'>[];
 
-    // Transform rows to API response format with participants
-    const conversations: Conversation[] = rows.map((row) => {
-      const participants = this.getParticipantsForChat(row.rowid);
-      return {
-        rowid: row.rowid,
-        guid: row.guid,
-        chatIdentifier: row.chatIdentifier,
-        displayName: row.displayName,
-        style: row.style,
-        isGroup: row.style === 43,
-        lastMessageDate: appleToJsTimestamp(row.lastMessageDate),
-        lastMessageText: row.lastMessageText,
-        participants,
-      };
-    });
+    // Batch fetch all data in parallel-friendly single queries
+    const chatIds = rows.map((row) => row.rowid);
+    const participantsByChat = this.getParticipantsForChats(chatIds);
+    const lastMessageTexts = this.getLastMessageTexts(chatIds);
+
+    // Transform rows to API response format
+    const conversations: Conversation[] = rows.map((row) => ({
+      rowid: row.rowid,
+      guid: row.guid,
+      chatIdentifier: row.chatIdentifier,
+      displayName: row.displayName,
+      style: row.style,
+      isGroup: row.style === 43,
+      lastMessageDate: appleToJsTimestamp(row.lastMessageDate),
+      lastMessageText: lastMessageTexts.get(row.rowid) ?? null,
+      participants: participantsByChat.get(row.rowid) ?? [],
+    }));
 
     return {
       conversations,

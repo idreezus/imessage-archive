@@ -1,3 +1,4 @@
+import { memo, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import type { Reaction } from '@/types';
 import { getDisplayReactions } from '@/lib/reactions';
@@ -10,12 +11,16 @@ type ReactionStackProps = {
 };
 
 // Stacked reaction badges with overlap effect.
-export function ReactionStack({
+// Memoized to prevent re-renders when parent message re-renders.
+export const ReactionStack = memo(function ReactionStack({
   reactions,
   isFromMe,
   maxVisible = 3,
 }: ReactionStackProps) {
-  const { visible, overflow } = getDisplayReactions(reactions, maxVisible);
+  const { visible, overflow } = useMemo(
+    () => getDisplayReactions(reactions, maxVisible),
+    [reactions, maxVisible]
+  );
 
   if (visible.length === 0) return null;
 
@@ -56,4 +61,4 @@ export function ReactionStack({
       )}
     </div>
   );
-}
+});

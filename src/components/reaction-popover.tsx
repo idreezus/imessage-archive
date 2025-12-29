@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import type { Reaction } from '@/types';
 import { REACTION_NAMES } from '@/types';
@@ -22,7 +23,11 @@ export function ReactionPopover({
   onOpenChange,
   children,
 }: ReactionPopoverProps) {
-  const aggregated = aggregateReactions(reactions);
+  // Memoize aggregation to avoid recalculation on parent re-renders
+  const aggregated = useMemo(
+    () => aggregateReactions(reactions),
+    [reactions]
+  );
 
   return (
     <Popover open={open} onOpenChange={onOpenChange}>

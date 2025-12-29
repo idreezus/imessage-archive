@@ -16,7 +16,6 @@ import {
 import { Label } from "@/components/ui/label";
 import type { SearchFilters as SearchFiltersType, DatePreset, ChatFilterOption } from "@/types/search";
 import type { Handle } from "@/types";
-import { getDateRangeFromPreset } from "@/types/search";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 

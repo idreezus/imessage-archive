@@ -1,8 +1,26 @@
 import { useCallback, useRef } from 'react';
-import { SidebarMenu, SidebarMenuSkeleton } from '@/components/ui/sidebar';
+import { SidebarMenu, SidebarMenuItem } from '@/components/ui/sidebar';
+import { Skeleton } from '@/components/ui/skeleton';
 import { ConversationItem } from '@/components/conversation-item';
 import { useConversations } from '@/hooks/use-conversations';
 import type { Conversation } from '@/types';
+
+// Skeleton that matches ConversationItem's two-row layout
+function ConversationItemSkeleton() {
+  return (
+    <SidebarMenuItem>
+      <div className="flex flex-col gap-2 py-4 px-6">
+        {/* Top row: name + time */}
+        <div className="flex items-center gap-2 w-full">
+          <Skeleton className="h-4 flex-1 max-w-[60%]" />
+          <Skeleton className="h-3 w-8 shrink-0" />
+        </div>
+        {/* Bottom row: message preview */}
+        <Skeleton className="h-3 w-[85%]" />
+      </div>
+    </SidebarMenuItem>
+  );
+}
 
 type ConversationListProps = {
   selectedId: number | null;
@@ -48,7 +66,7 @@ export function ConversationList({
         {/* Initial loading skeletons */}
         {isLoading && conversations.length === 0 ? (
           Array.from({ length: 10 }).map((_, i) => (
-            <SidebarMenuSkeleton key={i} showIcon />
+            <ConversationItemSkeleton key={i} />
           ))
         ) : (
           <>
@@ -63,7 +81,7 @@ export function ConversationList({
             ))}
 
             {/* Loading indicator for pagination */}
-            {isLoading && <SidebarMenuSkeleton showIcon />}
+            {isLoading && <ConversationItemSkeleton />}
           </>
         )}
       </SidebarMenu>

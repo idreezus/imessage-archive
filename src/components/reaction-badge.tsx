@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { cn } from '@/lib/utils';
 
 type ReactionBadgeProps = {
@@ -8,7 +9,8 @@ type ReactionBadgeProps = {
 };
 
 // Single reaction badge showing emoji and optional count.
-export function ReactionBadge({
+// Memoized to prevent re-renders when sibling reactions change.
+export const ReactionBadge = memo(function ReactionBadge({
   emoji,
   count,
   isFromMe,
@@ -41,4 +43,4 @@ export function ReactionBadge({
       )}
     </span>
   );
-}
+});

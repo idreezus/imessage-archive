@@ -18,6 +18,35 @@ type UseMessagesReturn = {
   loadedChatId: number | null;
 };
 
+// Cache for previously loaded messages - persists across hook instances
+type CacheEntry = {
+  messages: Message[];
+  hasMore: boolean;
+  oldestDate: number | undefined;
+  timestamp: number;
+};
+
+const messageCache = new Map<number, CacheEntry>();
+const CACHE_MAX_SIZE = 10; // Keep last 10 chats in memory
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes before background refresh
+
+// Evict oldest entries when cache is full
+function evictOldestCache() {
+  if (messageCache.size >= CACHE_MAX_SIZE) {
+    let oldestKey: number | null = null;
+    let oldestTime = Infinity;
+    for (const [key, entry] of messageCache) {
+      if (entry.timestamp < oldestTime) {
+        oldestTime = entry.timestamp;
+        oldestKey = key;
+      }
+    }
+    if (oldestKey !== null) {
+      messageCache.delete(oldestKey);
+    }
+  }
+}
+
 // Fetch and manage messages for a conversation with cursor pagination.
 export function useMessages(options: UseMessagesOptions): UseMessagesReturn {
   const { chatId, initialLimit = 50 } = options;
@@ -58,8 +87,20 @@ export function useMessages(options: UseMessagesOptions): UseMessagesReturn {
         setLoadedChatId(opts.chatId);
 
         // Track oldest message date for pagination cursor
+        const newOldestDate = result.messages.length > 0 ? result.messages[0].date : oldestDateRef.current;
         if (result.messages.length > 0) {
           oldestDateRef.current = result.messages[0].date;
+        }
+
+        // Save to cache (only for initial loads, not prepends)
+        if (!prepend) {
+          evictOldestCache();
+          messageCache.set(opts.chatId, {
+            messages: result.messages,
+            hasMore: result.hasMore,
+            oldestDate: newOldestDate,
+            timestamp: Date.now(),
+          });
         }
 
         setError(null);
@@ -74,7 +115,7 @@ export function useMessages(options: UseMessagesOptions): UseMessagesReturn {
     []
   );
 
-  // Fetch messages when chatId changes.
+  // Fetch messages when chatId changes - use cache for instant display.
   useEffect(() => {
     if (chatId === null) {
       setMessages([]);
@@ -84,8 +125,42 @@ export function useMessages(options: UseMessagesOptions): UseMessagesReturn {
       return;
     }
 
-    // CRITICAL: Clear old messages IMMEDIATELY to prevent stale render
-    // This ensures we never show old chat's messages with new chat's styling
+    // Check cache first for instant display
+    const cached = messageCache.get(chatId);
+    const now = Date.now();
+
+    if (cached) {
+      // Restore from cache immediately (no skeleton!)
+      setMessages(cached.messages);
+      setHasMore(cached.hasMore);
+      setLoadedChatId(chatId);
+      oldestDateRef.current = cached.oldestDate;
+
+      // If cache is fresh enough, skip refetch entirely
+      if (now - cached.timestamp < CACHE_TTL_MS) {
+        return;
+      }
+
+      // Cache is stale - refresh in background (no loading state)
+      window.electronAPI?.getMessages({ chatId, limit: initialLimit }).then((result) => {
+        setMessages(result.messages);
+        setHasMore(result.hasMore);
+
+        const newOldestDate = result.messages.length > 0 ? result.messages[0].date : undefined;
+        oldestDateRef.current = newOldestDate;
+
+        // Update cache
+        messageCache.set(chatId, {
+          messages: result.messages,
+          hasMore: result.hasMore,
+          oldestDate: newOldestDate,
+          timestamp: Date.now(),
+        });
+      });
+      return;
+    }
+
+    // No cache - clear and fetch with loading state
     setMessages([]);
     setHasMore(false);
     setLoadedChatId(null);

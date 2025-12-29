@@ -1,10 +1,11 @@
+import { memo, useMemo, useCallback } from "react";
 import { SidebarMenuButton } from "@/components/ui/sidebar";
 import type { SearchResultItem as SearchResultItemType } from "@/types/search";
 import { formatDistanceToNow } from "date-fns";
 
 type SearchResultItemProps = {
   result: SearchResultItemType;
-  onClick: () => void;
+  onResultClick: (result: SearchResultItemType) => void;
   isSelected?: boolean;
 };
 
@@ -26,17 +27,31 @@ function formatRelativeTime(timestamp: number): string {
   }
 }
 
-export function SearchResultItem({
+// Memoized search result item to prevent unnecessary re-renders.
+export const SearchResultItem = memo(function SearchResultItem({
   result,
-  onClick,
+  onResultClick,
   isSelected = false,
 }: SearchResultItemProps) {
-  const displayName = result.chatDisplayName || result.senderHandle || "Unknown";
+  const displayName = useMemo(
+    () => result.chatDisplayName || result.senderHandle || "Unknown",
+    [result.chatDisplayName, result.senderHandle]
+  );
+
+  const timeAgo = useMemo(
+    () => formatRelativeTime(result.date),
+    [result.date]
+  );
+
+  // Stable click handler - only recreated when result or handler changes
+  const handleClick = useCallback(() => {
+    onResultClick(result);
+  }, [onResultClick, result]);
 
   return (
     <SidebarMenuButton
       isActive={isSelected}
-      onClick={onClick}
+      onClick={handleClick}
       className="flex flex-col gap-1 py-3 px-4 h-auto items-start"
     >
       {/* Header: chat name + time */}
@@ -45,7 +60,7 @@ export function SearchResultItem({
           {displayName}
         </span>
         <span className="text-xs text-muted-foreground shrink-0">
-          {formatRelativeTime(result.date)}
+          {timeAgo}
         </span>
       </div>
 
@@ -68,4 +83,4 @@ export function SearchResultItem({
       )}
     </SidebarMenuButton>
   );
-}
+});

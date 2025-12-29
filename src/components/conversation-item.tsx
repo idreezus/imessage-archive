@@ -1,3 +1,4 @@
+import { memo, useMemo, useCallback } from 'react';
 import { SidebarMenuItem, SidebarMenuButton } from '@/components/ui/sidebar';
 import type { Conversation } from '@/types';
 
@@ -48,20 +49,33 @@ function getDisplayName(conversation: Conversation): string {
 }
 
 // Single conversation row in the sidebar list.
-export function ConversationItem({
+// Memoized to prevent unnecessary re-renders when parent state changes.
+export const ConversationItem = memo(function ConversationItem({
   conversation,
   isSelected,
   onSelect,
 }: ConversationItemProps) {
-  const displayName = getDisplayName(conversation);
-  const timeAgo = formatRelativeTime(conversation.lastMessageDate);
+  // Memoize computed values to avoid recalculation on every render
+  const displayName = useMemo(
+    () => getDisplayName(conversation),
+    [conversation]
+  );
+  const timeAgo = useMemo(
+    () => formatRelativeTime(conversation.lastMessageDate),
+    [conversation.lastMessageDate]
+  );
+
+  // Stable click handler
+  const handleClick = useCallback(() => {
+    onSelect(conversation);
+  }, [onSelect, conversation]);
 
   return (
     <SidebarMenuItem>
       {/* Clickable conversation button */}
       <SidebarMenuButton
         isActive={isSelected}
-        onClick={() => onSelect(conversation)}
+        onClick={handleClick}
         size="lg"
         className="flex flex-col gap-1 py-4 px-6 h-auto"
       >
@@ -84,4 +98,4 @@ export function ConversationItem({
       </SidebarMenuButton>
     </SidebarMenuItem>
   );
-}
+});

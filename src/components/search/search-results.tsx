@@ -1,6 +1,6 @@
 import { useRef, useEffect, useCallback } from "react";
 import { Search } from "lucide-react";
-import { Empty } from "@/components/ui/empty";
+import { Empty, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import { SearchResultItem } from "./search-result-item";
 import { SearchResultSkeleton } from "./search-result-skeleton";
 import type { SearchResultItem as SearchResultItemType } from "@/types/search";
@@ -65,11 +65,13 @@ export function SearchResults({
   if (!isLoading && results.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center p-8">
-        <Empty
-          icon={<Search className="size-8 text-muted-foreground" />}
-          title="No results found"
-          description="Try adjusting your search or filters"
-        />
+        <Empty>
+          <EmptyMedia variant="icon">
+            <Search className="size-6" />
+          </EmptyMedia>
+          <EmptyTitle>No results found</EmptyTitle>
+          <EmptyDescription>Try adjusting your search or filters</EmptyDescription>
+        </Empty>
       </div>
     );
   }
@@ -95,7 +97,7 @@ export function SearchResults({
             >
               <SearchResultItem
                 result={result}
-                onClick={() => onResultClick(result)}
+                onResultClick={onResultClick}
                 isSelected={index === selectedIndex}
               />
             </div>
