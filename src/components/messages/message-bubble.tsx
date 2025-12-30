@@ -78,6 +78,7 @@ export function MessageBubble({
 
             {(hasText || hasNonMediaAttachments) && (
               <MessageTextBubble
+                message={message}
                 text={displayText}
                 nonMediaAttachments={nonMediaAttachments}
                 isFromMe={isFromMe}
@@ -89,6 +90,7 @@ export function MessageBubble({
 
             {!hasMediaAttachments && !hasText && !hasNonMediaAttachments && (
               <MessageFallback
+                message={message}
                 isFromMe={isFromMe}
                 reactions={showReactionsOnFallback ? message.reactions : undefined}
                 showReactionDetails={showReactionDetails}

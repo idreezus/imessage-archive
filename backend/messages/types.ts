@@ -19,6 +19,15 @@ export type MessageRow = {
   service: string;
   handleIdentifier: string | null;
   handleService: string | null;
+  // Additional metadata fields
+  dateRead: number | null;
+  dateDelivered: number | null;
+  dateEdited: number | null;
+  dateRetracted: number | null;
+  wasDowngraded: number;
+  expressiveSendStyleId: string | null;
+  isForward: number;
+  error: number;
 };
 
 // Reaction row from database query
@@ -61,6 +70,15 @@ export type Message = {
   senderHandle?: Handle;
   reactions: Reaction[];
   attachments: Attachment[];
+  // Additional metadata fields
+  dateRead: number | null;
+  dateDelivered: number | null;
+  dateEdited: number | null;
+  dateRetracted: number | null;
+  wasDowngraded: boolean;
+  expressiveSendStyleId: string | null;
+  isForward: boolean;
+  error: number;
 };
 
 // Query options for fetching messages

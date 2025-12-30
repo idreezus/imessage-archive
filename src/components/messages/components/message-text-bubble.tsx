@@ -1,10 +1,12 @@
 import { memo, useCallback } from 'react';
 import { cn } from '@/lib/utils';
-import type { Attachment, Reaction } from '@/types';
+import type { Attachment, Message, Reaction } from '@/types';
 import { AttachmentGrid } from '@/components/attachments';
 import { MessageReactions } from './message-reactions';
+import { MessageContextMenu } from './message-context-menu';
 
 type MessageTextBubbleProps = {
+  message: Message;
   text: string | null;
   nonMediaAttachments: Attachment[];
   isFromMe: boolean;
@@ -15,6 +17,7 @@ type MessageTextBubbleProps = {
 
 // Text bubble with optional non-media attachments (audio, documents, etc.).
 export const MessageTextBubble = memo(function MessageTextBubble({
+  message,
   text,
   nonMediaAttachments,
   isFromMe,
@@ -41,35 +44,37 @@ export const MessageTextBubble = memo(function MessageTextBubble({
           onShowDetailsChange={onShowReactionDetailsChange}
         />
       )}
-      <div
-        className={cn(
-          'px-4 py-2 rounded-2xl',
-          isFromMe
-            ? 'bg-primary text-primary-foreground'
-            : 'bg-muted text-foreground',
-          hasReactions && 'mt-3',
-          hasNonMediaAttachments && 'p-1'
-        )}
-      >
-        {hasNonMediaAttachments && hasText ? (
-          <div className="space-y-2">
+      <MessageContextMenu message={message}>
+        <div
+          className={cn(
+            'px-4 py-2 rounded-2xl',
+            isFromMe
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-muted text-foreground',
+            hasReactions && 'mt-3',
+            hasNonMediaAttachments && 'p-1'
+          )}
+        >
+          {hasNonMediaAttachments && hasText ? (
+            <div className="space-y-2">
+              <AttachmentGrid
+                attachments={nonMediaAttachments}
+                onOpenLightbox={handleOpenLightbox}
+              />
+              <p className="whitespace-pre-wrap wrap-break-words px-3 py-1">
+                {text}
+              </p>
+            </div>
+          ) : hasNonMediaAttachments ? (
             <AttachmentGrid
               attachments={nonMediaAttachments}
               onOpenLightbox={handleOpenLightbox}
             />
-            <p className="whitespace-pre-wrap wrap-break-words px-3 py-1">
-              {text}
-            </p>
-          </div>
-        ) : hasNonMediaAttachments ? (
-          <AttachmentGrid
-            attachments={nonMediaAttachments}
-            onOpenLightbox={handleOpenLightbox}
-          />
-        ) : (
-          <p className="whitespace-pre-wrap wrap-break-words">{text}</p>
-        )}
-      </div>
+          ) : (
+            <p className="whitespace-pre-wrap wrap-break-words">{text}</p>
+          )}
+        </div>
+      </MessageContextMenu>
     </div>
   );
 });

@@ -117,6 +117,15 @@ export type Message = {
   senderHandle?: Handle;
   reactions: Reaction[];
   attachments: Attachment[];
+  // Additional metadata fields
+  dateRead: number | null; // JS timestamp - when message was read
+  dateDelivered: number | null; // JS timestamp - when message was delivered
+  dateEdited: number | null; // JS timestamp - when message was edited (iOS 16+)
+  dateRetracted: number | null; // JS timestamp - when message was unsent (iOS 16+)
+  wasDowngraded: boolean; // true if iMessage was downgraded to SMS
+  expressiveSendStyleId: string | null; // bubble effect ID (e.g., confetti)
+  isForward: boolean; // true if message was forwarded
+  error: number; // 0 = success, non-zero = error code
 };
 
 // IPC response for conversation list query

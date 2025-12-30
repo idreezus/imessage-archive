@@ -9,6 +9,7 @@ import {
 } from 'react';
 import type { ReactNode } from 'react';
 import { LRUCache } from '@/lib/lru-cache';
+import { startTimer } from '@/lib/perf';
 import type {
   GalleryAttachment,
   GalleryFilters,
@@ -219,6 +220,7 @@ export function GalleryProvider({ children }: { children: ReactNode }) {
       setIsLoading(true);
       setError(null);
 
+      const timer = startTimer('ipc', 'getGalleryAttachments');
       try {
         const response = await window.electronAPI.getGalleryAttachments(options);
 
@@ -226,6 +228,14 @@ export function GalleryProvider({ children }: { children: ReactNode }) {
         if (abortControllerRef.current?.signal.aborted) {
           return;
         }
+
+        timer.end({
+          chatId: options.chatId ?? null,
+          limit: options.limit,
+          offset: options.offset,
+          attachmentCount: response.attachments.length,
+          types: options.types ?? 'all',
+        });
 
         // Cache result
         cacheRef.current.set(cacheKey, response);

@@ -41,7 +41,15 @@ export function getMessagesAroundDate(
       m.is_from_me as isFromMe,
       m.service,
       h.id as handleIdentifier,
-      h.service as handleService
+      h.service as handleService,
+      m.date_read as dateRead,
+      m.date_delivered as dateDelivered,
+      m.date_edited as dateEdited,
+      m.date_retracted as dateRetracted,
+      m.was_downgraded as wasDowngraded,
+      m.expressive_send_style_id as expressiveSendStyleId,
+      m.is_forward as isForward,
+      m.error
     FROM chat_message_join cmj
       INDEXED BY chat_message_join_idx_message_date_id_chat_id
     JOIN message m ON m.ROWID = cmj.message_id
@@ -66,7 +74,15 @@ export function getMessagesAroundDate(
       m.is_from_me as isFromMe,
       m.service,
       h.id as handleIdentifier,
-      h.service as handleService
+      h.service as handleService,
+      m.date_read as dateRead,
+      m.date_delivered as dateDelivered,
+      m.date_edited as dateEdited,
+      m.date_retracted as dateRetracted,
+      m.was_downgraded as wasDowngraded,
+      m.expressive_send_style_id as expressiveSendStyleId,
+      m.is_forward as isForward,
+      m.error
     FROM chat_message_join cmj
       INDEXED BY chat_message_join_idx_message_date_id_chat_id
     JOIN message m ON m.ROWID = cmj.message_id
@@ -115,6 +131,14 @@ export function getMessagesAroundDate(
       : undefined,
     reactions: reactionsByGuid.get(row.guid) ?? [],
     attachments: attachmentsByMessage.get(row.rowid) ?? [],
+    dateRead: row.dateRead ? appleToJsTimestamp(row.dateRead) : null,
+    dateDelivered: row.dateDelivered ? appleToJsTimestamp(row.dateDelivered) : null,
+    dateEdited: row.dateEdited ? appleToJsTimestamp(row.dateEdited) : null,
+    dateRetracted: row.dateRetracted ? appleToJsTimestamp(row.dateRetracted) : null,
+    wasDowngraded: row.wasDowngraded === 1,
+    expressiveSendStyleId: row.expressiveSendStyleId,
+    isForward: row.isForward === 1,
+    error: row.error,
   }));
 
   // Find index of target message (closest to targetDate)
@@ -153,7 +177,15 @@ export function getMessages(options: MessagesOptions): {
       m.is_from_me as isFromMe,
       m.service,
       h.id as handleIdentifier,
-      h.service as handleService
+      h.service as handleService,
+      m.date_read as dateRead,
+      m.date_delivered as dateDelivered,
+      m.date_edited as dateEdited,
+      m.date_retracted as dateRetracted,
+      m.was_downgraded as wasDowngraded,
+      m.expressive_send_style_id as expressiveSendStyleId,
+      m.is_forward as isForward,
+      m.error
     FROM chat_message_join cmj
       INDEXED BY chat_message_join_idx_message_date_id_chat_id
     JOIN message m ON m.ROWID = cmj.message_id
@@ -215,6 +247,14 @@ export function getMessages(options: MessagesOptions): {
       : undefined,
     reactions: reactionsByGuid.get(row.guid) ?? [],
     attachments: attachmentsByMessage.get(row.rowid) ?? [],
+    dateRead: row.dateRead ? appleToJsTimestamp(row.dateRead) : null,
+    dateDelivered: row.dateDelivered ? appleToJsTimestamp(row.dateDelivered) : null,
+    dateEdited: row.dateEdited ? appleToJsTimestamp(row.dateEdited) : null,
+    dateRetracted: row.dateRetracted ? appleToJsTimestamp(row.dateRetracted) : null,
+    wasDowngraded: row.wasDowngraded === 1,
+    expressiveSendStyleId: row.expressiveSendStyleId,
+    isForward: row.isForward === 1,
+    error: row.error,
   }));
   transformTimer.end({ messages: messages.length });
 

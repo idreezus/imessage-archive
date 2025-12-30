@@ -1,5 +1,6 @@
-import { memo, useCallback, useMemo } from 'react';
-import { VirtuosoGrid } from 'react-virtuoso';
+import { memo, useCallback, useMemo, useRef } from 'react';
+import { VirtuosoGrid, type ListRange } from 'react-virtuoso';
+import { useRenderTiming, measureSync, log } from '@/lib/perf';
 import { useGalleryContext } from './gallery-context';
 import { GalleryHeader } from './gallery-header';
 import { GalleryThumbnail } from './gallery-thumbnail';
@@ -96,9 +97,19 @@ export const GalleryView = memo(function GalleryView() {
 
   // Flatten attachments to grid items
   const gridItems = useMemo(
-    () => flattenToGridItems(attachments, showMonthHeaders),
+    () =>
+      measureSync('gallery.flattenToGridItems', () =>
+        flattenToGridItems(attachments, showMonthHeaders)
+      ),
     [attachments, showMonthHeaders]
   );
+
+  // Track render performance
+  useRenderTiming('GalleryView', {
+    attachmentCount: attachments.length,
+    gridItemCount: gridItems.length,
+    isGlobalView,
+  });
 
   // Convert attachments to lightbox format
   const lightboxAttachments = useMemo(() => {
@@ -143,6 +154,28 @@ export const GalleryView = memo(function GalleryView() {
       loadMore();
     }
   }, [hasMore, isLoading, loadMore]);
+
+  // Track scroll range changes for performance analysis
+  const lastRangeRef = useRef<ListRange | null>(null);
+  const rangeChangeCountRef = useRef(0);
+  const handleRangeChanged = useCallback(
+    (range: ListRange) => {
+      rangeChangeCountRef.current++;
+      const itemsInRange = range.endIndex - range.startIndex;
+      // Log every 10 range changes to track scroll activity
+      if (rangeChangeCountRef.current % 10 === 0) {
+        log('render', 'gallery.scrollRange', 0, {
+          startIndex: range.startIndex,
+          endIndex: range.endIndex,
+          itemsVisible: itemsInRange,
+          totalItems: gridItems.length,
+          rangeChanges: rangeChangeCountRef.current,
+        });
+      }
+      lastRangeRef.current = range;
+    },
+    [gridItems.length]
+  );
 
   // Render grid item
   const renderItem = useCallback(
@@ -216,6 +249,7 @@ export const GalleryView = memo(function GalleryView() {
           itemClassName="gallery-grid-item"
           overscan={200}
           endReached={handleEndReached}
+          rangeChanged={handleRangeChanged}
           style={{ height: '100%' }}
           components={{
             Footer: () =>

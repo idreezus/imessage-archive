@@ -1,7 +1,12 @@
-import { memo, useState, useEffect } from 'react';
+import { memo, useState, useEffect, useRef } from 'react';
 import { Play, Music, FileText, File } from 'lucide-react';
 import type { GalleryAttachment } from '@/types/gallery';
 import { cn } from '@/lib/utils';
+import { log } from '@/lib/perf';
+
+// Global counters for tracking thumbnail fetch patterns
+let thumbnailFetchCount = 0;
+let thumbnailMountCount = 0;
 
 type GalleryThumbnailProps = {
   attachment: GalleryAttachment;
@@ -15,6 +20,17 @@ export const GalleryThumbnail = memo(function GalleryThumbnail({
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
+  const mountCountRef = useRef(0);
+
+  // Track mount count per instance
+  useEffect(() => {
+    mountCountRef.current++;
+    thumbnailMountCount++;
+    // Log every 50 mounts to reduce noise
+    if (thumbnailMountCount % 50 === 0) {
+      log('render', 'gallery.thumbnailMounts', 0, { totalMounts: thumbnailMountCount });
+    }
+  }, []);
 
   useEffect(() => {
     if (!attachment.localPath) {
@@ -25,6 +41,17 @@ export const GalleryThumbnail = memo(function GalleryThumbnail({
 
     // Only load thumbnail for images and videos
     if (attachment.type === 'image' || attachment.type === 'video' || attachment.type === 'sticker') {
+      thumbnailFetchCount++;
+      const fetchNum = thumbnailFetchCount;
+      // Log every 20 fetches to track volume without spam
+      if (fetchNum % 20 === 0) {
+        log('ipc', 'gallery.thumbnailUrlFetches', 0, {
+          totalFetches: fetchNum,
+          rowid: attachment.rowid,
+          instanceMounts: mountCountRef.current,
+        });
+      }
+
       window.electronAPI
         .getAttachmentFileUrl(attachment.localPath)
         .then((url) => {
@@ -43,7 +70,7 @@ export const GalleryThumbnail = memo(function GalleryThumbnail({
     } else {
       setIsLoading(false);
     }
-  }, [attachment.localPath, attachment.type]);
+  }, [attachment.localPath, attachment.type, attachment.rowid]);
 
   // Render icon-based thumbnail for non-media types
   const renderIconThumbnail = () => {
