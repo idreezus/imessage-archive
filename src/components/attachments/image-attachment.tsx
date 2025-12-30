@@ -2,6 +2,7 @@ import { memo, useState, useEffect, useCallback, useMemo } from 'react';
 import type { Attachment } from '@/types';
 import { cn } from '@/lib/utils';
 import { UnavailableAttachment } from './unavailable-attachment';
+import { AttachmentContextMenu } from './attachment-context-menu';
 
 type ImageAttachmentProps = {
   attachment: Attachment;
@@ -123,30 +124,32 @@ export const ImageAttachment = memo(function ImageAttachment({
     : placeholderDimensions;
 
   return (
-    <button
-      onClick={onOpenLightbox}
-      className={cn(
-        'relative block focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-2xl overflow-hidden',
-        onOpenLightbox && 'cursor-pointer hover:opacity-90 transition-opacity'
-      )}
-      style={containerStyle}
-      disabled={!onOpenLightbox}
-    >
-      {isLoading && (
-        <div
-          className="absolute inset-0 animate-pulse bg-muted rounded-2xl"
-        />
-      )}
-      <img
-        src={imageUrl}
-        alt={attachment.transferName || 'Image'}
+    <AttachmentContextMenu attachment={attachment}>
+      <button
+        onClick={onOpenLightbox}
         className={cn(
-          'w-full h-full object-contain rounded-2xl transition-opacity duration-200',
-          isLoading ? 'opacity-0' : 'opacity-100'
+          'relative block focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-2xl overflow-hidden',
+          onOpenLightbox && 'cursor-pointer hover:opacity-90 transition-opacity'
         )}
-        onLoad={handleImageLoad}
-        onError={() => setError(true)}
-      />
-    </button>
+        style={containerStyle}
+        disabled={!onOpenLightbox}
+      >
+        {isLoading && (
+          <div
+            className="absolute inset-0 animate-pulse bg-muted rounded-2xl"
+          />
+        )}
+        <img
+          src={imageUrl}
+          alt={attachment.transferName || 'Image'}
+          className={cn(
+            'w-full h-full object-contain rounded-2xl transition-opacity duration-200',
+            isLoading ? 'opacity-0' : 'opacity-100'
+          )}
+          onLoad={handleImageLoad}
+          onError={() => setError(true)}
+        />
+      </button>
+    </AttachmentContextMenu>
   );
 });

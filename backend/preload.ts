@@ -110,13 +110,13 @@ const electronAPI = {
     ipcRenderer.invoke("gallery:get-attachment-metadata", { rowid }),
 
   downloadAttachment: (options: DownloadAttachmentOptions) =>
-    ipcRenderer.invoke("gallery:download-attachment", options),
+    ipcRenderer.invoke("attachments:download", options),
 
   showInFinder: (localPath: string) =>
-    ipcRenderer.invoke("gallery:show-in-finder", { localPath }),
+    ipcRenderer.invoke("attachments:show-in-finder", { localPath }),
 
   shareAttachment: (localPath: string) =>
-    ipcRenderer.invoke("gallery:share-attachment", { localPath }),
+    ipcRenderer.invoke("attachments:share", { localPath }),
 };
 
 // Expose API to renderer process securely

@@ -3,6 +3,7 @@ import { Play } from 'lucide-react';
 import type { Attachment } from '@/types';
 import { cn } from '@/lib/utils';
 import { UnavailableAttachment } from './unavailable-attachment';
+import { AttachmentContextMenu } from './attachment-context-menu';
 
 type VideoAttachmentProps = {
   attachment: Attachment;
@@ -132,34 +133,36 @@ export const VideoAttachment = memo(function VideoAttachment({
     : placeholderDimensions;
 
   return (
-    <button
-      onClick={onOpenLightbox}
-      className={cn(
-        'relative block bg-black rounded-2xl overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-primary',
-        onOpenLightbox && 'cursor-pointer hover:opacity-90 transition-opacity'
-      )}
-      style={containerStyle}
-      disabled={!onOpenLightbox}
-    >
-      {isLoading && (
-        <div className="absolute inset-0 animate-pulse bg-muted rounded-2xl" />
-      )}
-      <video
-        ref={videoRef}
-        src={videoUrl}
+    <AttachmentContextMenu attachment={attachment}>
+      <button
+        onClick={onOpenLightbox}
         className={cn(
-          'w-full h-full object-contain transition-opacity duration-200',
-          isLoading ? 'opacity-0' : 'opacity-100'
+          'relative block bg-black rounded-2xl overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+          onOpenLightbox && 'cursor-pointer hover:opacity-90 transition-opacity'
         )}
-        preload="metadata"
-        onLoadedMetadata={handleLoadedMetadata}
-        onError={handleError}
-      />
-      <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-        <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center">
-          <Play className="w-6 h-6 text-black ml-1" />
+        style={containerStyle}
+        disabled={!onOpenLightbox}
+      >
+        {isLoading && (
+          <div className="absolute inset-0 animate-pulse bg-muted rounded-2xl" />
+        )}
+        <video
+          ref={videoRef}
+          src={videoUrl}
+          className={cn(
+            'w-full h-full object-contain transition-opacity duration-200',
+            isLoading ? 'opacity-0' : 'opacity-100'
+          )}
+          preload="metadata"
+          onLoadedMetadata={handleLoadedMetadata}
+          onError={handleError}
+        />
+        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+          <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center">
+            <Play className="w-6 h-6 text-black ml-1" />
+          </div>
         </div>
-      </div>
-    </button>
+      </button>
+    </AttachmentContextMenu>
   );
 });

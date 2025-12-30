@@ -57,7 +57,6 @@ export const GalleryFilters = memo(function GalleryFilters() {
     sortOrder,
     setSortBy,
     toggleSortOrder,
-    chatId,
   } = useGalleryContext();
 
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);

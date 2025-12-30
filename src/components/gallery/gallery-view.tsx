@@ -62,20 +62,6 @@ function flattenToGridItems(
   return items;
 }
 
-// Get attachment index in flat list (excluding headers)
-function getAttachmentIndex(
-  items: GalleryGridItem[],
-  gridIndex: number
-): number {
-  let attachmentIndex = 0;
-  for (let i = 0; i < gridIndex; i++) {
-    if (items[i].type === 'attachment') {
-      attachmentIndex++;
-    }
-  }
-  return attachmentIndex;
-}
-
 // Loading skeleton grid
 function LoadingSkeleton() {
   return (

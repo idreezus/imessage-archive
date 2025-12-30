@@ -3,6 +3,7 @@ import { Play, Pause, Mic } from 'lucide-react';
 import type { Attachment } from '@/types';
 import { cn } from '@/lib/utils';
 import { UnavailableAttachment } from './unavailable-attachment';
+import { AttachmentContextMenu } from './attachment-context-menu';
 import { formatFileSize } from '@/lib/attachments';
 
 type AudioAttachmentProps = {
@@ -98,27 +99,29 @@ export const AudioAttachment = memo(function AudioAttachment({
   // Show informative UI for unplayable formats (CAF, AMR)
   if (!canPlay) {
     return (
-      <div
-        className={cn(
-          'flex items-center gap-3 p-3 rounded-lg min-w-[200px]',
-          isVoiceMemo ? 'bg-primary/10' : 'bg-muted'
-        )}
-      >
+      <AttachmentContextMenu attachment={attachment}>
         <div
           className={cn(
-            'w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0',
-            isVoiceMemo ? 'bg-primary/30' : 'bg-muted-foreground/20'
+            'flex items-center gap-3 p-3 rounded-lg min-w-[200px]',
+            isVoiceMemo ? 'bg-primary/10' : 'bg-muted'
           )}
         >
-          <Mic className={cn('w-5 h-5', isVoiceMemo ? 'text-primary' : 'text-muted-foreground')} />
+          <div
+            className={cn(
+              'w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0',
+              isVoiceMemo ? 'bg-primary/30' : 'bg-muted-foreground/20'
+            )}
+          >
+            <Mic className={cn('w-5 h-5', isVoiceMemo ? 'text-primary' : 'text-muted-foreground')} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm text-muted-foreground">Voice memo</p>
+            <p className="text-xs text-muted-foreground/70">
+              {attachment.totalBytes ? formatFileSize(attachment.totalBytes) : 'Format not playable in browser'}
+            </p>
+          </div>
         </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm text-muted-foreground">Voice memo</p>
-          <p className="text-xs text-muted-foreground/70">
-            {attachment.totalBytes ? formatFileSize(attachment.totalBytes) : 'Format not playable in browser'}
-          </p>
-        </div>
-      </div>
+      </AttachmentContextMenu>
     );
   }
 
@@ -129,56 +132,58 @@ export const AudioAttachment = memo(function AudioAttachment({
   const progress = duration ? (currentTime / duration) * 100 : 0;
 
   return (
-    <div
-      className={cn(
-        'flex items-center gap-3 p-3 rounded-lg min-w-[200px]',
-        isVoiceMemo ? 'bg-primary/10' : 'bg-muted'
-      )}
-    >
-      <audio
-        ref={audioRef}
-        src={audioUrl}
-        onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
-        onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
-        onEnded={() => {
-          setIsPlaying(false);
-          setCurrentTime(0);
-        }}
-        preload="metadata"
-      />
-
-      <button
-        onClick={togglePlay}
+    <AttachmentContextMenu attachment={attachment}>
+      <div
         className={cn(
-          'w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0',
-          isVoiceMemo ? 'bg-primary' : 'bg-foreground'
+          'flex items-center gap-3 p-3 rounded-lg min-w-[200px]',
+          isVoiceMemo ? 'bg-primary/10' : 'bg-muted'
         )}
       >
-        {isPlaying ? (
-          <Pause className={cn('w-5 h-5', isVoiceMemo ? 'text-primary-foreground' : 'text-background')} />
-        ) : (
-          <Play className={cn('w-5 h-5 ml-0.5', isVoiceMemo ? 'text-primary-foreground' : 'text-background')} />
-        )}
-      </button>
+        <audio
+          ref={audioRef}
+          src={audioUrl}
+          onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
+          onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
+          onEnded={() => {
+            setIsPlaying(false);
+            setCurrentTime(0);
+          }}
+          preload="metadata"
+        />
 
-      <div className="flex-1 min-w-0">
-        <div
-          className="h-1.5 bg-muted-foreground/20 rounded-full overflow-hidden cursor-pointer"
-          onClick={handleSeek}
+        <button
+          onClick={togglePlay}
+          className={cn(
+            'w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0',
+            isVoiceMemo ? 'bg-primary' : 'bg-foreground'
+          )}
         >
+          {isPlaying ? (
+            <Pause className={cn('w-5 h-5', isVoiceMemo ? 'text-primary-foreground' : 'text-background')} />
+          ) : (
+            <Play className={cn('w-5 h-5 ml-0.5', isVoiceMemo ? 'text-primary-foreground' : 'text-background')} />
+          )}
+        </button>
+
+        <div className="flex-1 min-w-0">
           <div
-            className={cn(
-              'h-full transition-all',
-              isVoiceMemo ? 'bg-primary' : 'bg-foreground'
-            )}
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-        <div className="flex justify-between text-xs text-muted-foreground mt-1">
-          <span>{formatTime(currentTime)}</span>
-          <span>{duration ? formatTime(duration) : '--:--'}</span>
+            className="h-1.5 bg-muted-foreground/20 rounded-full overflow-hidden cursor-pointer"
+            onClick={handleSeek}
+          >
+            <div
+              className={cn(
+                'h-full transition-all',
+                isVoiceMemo ? 'bg-primary' : 'bg-foreground'
+              )}
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          <div className="flex justify-between text-xs text-muted-foreground mt-1">
+            <span>{formatTime(currentTime)}</span>
+            <span>{duration ? formatTime(duration) : '--:--'}</span>
+          </div>
         </div>
       </div>
-    </div>
+    </AttachmentContextMenu>
   );
 });

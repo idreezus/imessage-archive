@@ -1,6 +1,7 @@
 import { memo, useState, useEffect } from 'react';
 import type { Attachment } from '@/types';
 import { UnavailableAttachment } from './unavailable-attachment';
+import { AttachmentContextMenu } from './attachment-context-menu';
 
 type StickerAttachmentProps = {
   attachment: Attachment;
@@ -44,14 +45,16 @@ export const StickerAttachment = memo(function StickerAttachment({
   }
 
   return (
-    <div className="inline-block p-1 bg-muted/30 rounded-lg">
-      <img
-        src={imageUrl}
-        alt={attachment.transferName || 'Sticker'}
-        className="object-contain"
-        style={{ maxWidth: 120, maxHeight: 120 }}
-        loading="lazy"
-      />
-    </div>
+    <AttachmentContextMenu attachment={attachment}>
+      <div className="inline-block p-1 bg-muted/30 rounded-lg">
+        <img
+          src={imageUrl}
+          alt={attachment.transferName || 'Sticker'}
+          className="object-contain"
+          style={{ maxWidth: 120, maxHeight: 120 }}
+          loading="lazy"
+        />
+      </div>
+    </AttachmentContextMenu>
   );
 });
