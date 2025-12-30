@@ -23,6 +23,8 @@ const electronAPI = {
     getChatsForFilter: () => electron_1.ipcRenderer.invoke("search:get-chats"),
     // Get messages around a specific date (for scroll-to navigation)
     getMessagesAroundDate: (chatId, targetDate, contextCount) => electron_1.ipcRenderer.invoke("db:get-messages-around-date", { chatId, targetDate, contextCount }),
+    // Get attachment file URL from relative path
+    getAttachmentFileUrl: (relativePath) => electron_1.ipcRenderer.invoke("attachment:get-file-url", { relativePath }),
 };
 // Expose API to renderer process securely
 electron_1.contextBridge.exposeInMainWorld("electronAPI", electronAPI);

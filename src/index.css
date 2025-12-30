@@ -157,3 +157,12 @@ mark {
 .dark mark {
   background-color: oklch(0.4 0.12 90);
 }
+
+/* Hide scrollbar while keeping scroll functionality */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

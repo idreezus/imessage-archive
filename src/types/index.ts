@@ -63,6 +63,31 @@ export type AggregatedReaction = {
   }>;
 };
 
+// Attachment type classification
+export type AttachmentType =
+  | 'image'
+  | 'video'
+  | 'audio'
+  | 'voice-memo'
+  | 'sticker'
+  | 'document'
+  | 'other';
+
+// Attachment from message_attachment_join
+export type Attachment = {
+  rowid: number;
+  guid: string;
+  filename: string | null;
+  mimeType: string | null;
+  uti: string | null;
+  transferName: string | null;
+  totalBytes: number;
+  isSticker: boolean;
+  isAudioMessage: boolean;
+  localPath: string | null;
+  type: AttachmentType;
+};
+
 // Conversation thread from chat table
 export type Conversation = {
   rowid: number;
@@ -87,6 +112,7 @@ export type Message = {
   service: string;
   senderHandle?: Handle;
   reactions: Reaction[];
+  attachments: Attachment[];
 };
 
 // IPC response for conversation list query

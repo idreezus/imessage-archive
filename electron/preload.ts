@@ -60,6 +60,10 @@ const electronAPI = {
   // Get messages around a specific date (for scroll-to navigation)
   getMessagesAroundDate: (chatId: number, targetDate: number, contextCount?: number) =>
     ipcRenderer.invoke("db:get-messages-around-date", { chatId, targetDate, contextCount }),
+
+  // Get attachment file URL from relative path
+  getAttachmentFileUrl: (relativePath: string) =>
+    ipcRenderer.invoke("attachment:get-file-url", { relativePath }) as Promise<string | null>,
 };
 
 // Expose API to renderer process securely

@@ -138,6 +138,9 @@ class DatabaseService {
         const messageGuids = allRows.map(row => row.guid);
         const reactionRows = this.getReactionsForMessages(messageGuids);
         const reactionsByGuid = this.processReactions(reactionRows);
+        // Get attachments for all messages
+        const messageRowids = allRows.map(row => row.rowid);
+        const attachmentsByMessage = this.getAttachmentsForMessages(messageRowids);
         // Transform to Message format
         const messages = allRows.map(row => ({
             rowid: row.rowid,
@@ -155,6 +158,7 @@ class DatabaseService {
                 }
                 : undefined,
             reactions: reactionsByGuid.get(row.guid) ?? [],
+            attachments: attachmentsByMessage.get(row.rowid) ?? [],
         }));
         // Find index of target message (closest to targetDate)
         let targetIndex = 0;
@@ -245,6 +249,113 @@ class DatabaseService {
                 .sort((a, b) => a.date - b.date);
             if (activeReactions.length > 0) {
                 result.set(guid, activeReactions);
+            }
+        }
+        return result;
+    }
+    // Classify attachment type based on mime type, UTI, and flags.
+    classifyAttachmentType(row) {
+        // Check special flags first
+        if (row.isAudioMessage === 1)
+            return "voice-memo";
+        if (row.isSticker === 1)
+            return "sticker";
+        const mime = row.mimeType?.toLowerCase() || "";
+        const uti = row.uti?.toLowerCase() || "";
+        const filename = row.filename?.toLowerCase() || "";
+        // Check for CAF voice memos (Core Audio Format - not browser playable)
+        // These often have no mime_type but have UTI com.apple.coreaudio-format
+        if (uti.includes("coreaudio") || filename.endsWith(".caf")) {
+            return "voice-memo";
+        }
+        // Check MIME type
+        if (mime.startsWith("image/"))
+            return "image";
+        if (mime.startsWith("video/"))
+            return "video";
+        if (mime.startsWith("audio/"))
+            return "audio";
+        if (mime === "application/pdf")
+            return "document";
+        // Fallback to UTI
+        if (uti.includes("image") || uti.includes("jpeg") || uti.includes("png") || uti.includes("heic"))
+            return "image";
+        if (uti.includes("movie") || uti.includes("video") || uti.includes("quicktime"))
+            return "video";
+        if (uti.includes("audio") || uti.includes("m4a") || uti.includes("mp3"))
+            return "audio";
+        if (uti.includes("pdf"))
+            return "document";
+        return "other";
+    }
+    // Resolve database attachment path to local relative path.
+    // Database paths: ~/Library/Messages/Attachments/XX/YY/at_Z_GUID/filename.ext
+    // Local paths: data/attachments/XX/YY/at_Z_GUID/filename.ext (preserves at_ prefix)
+    resolveAttachmentPath(dbPath) {
+        if (!dbPath)
+            return null;
+        // Match the iMessage attachment path format and preserve the full folder name
+        const match = dbPath.match(/~\/Library\/Messages\/Attachments\/([a-f0-9]{2})\/([a-f0-9]{2})\/(at_\d+_[A-F0-9-]+)\/(.+)$/i);
+        if (match) {
+            const [, dir1, dir2, folderName, filename] = match;
+            return `${dir1}/${dir2}/${folderName}/${filename}`;
+        }
+        // Alternative: try to extract just the relative path from Attachments/
+        const altMatch = dbPath.match(/Attachments\/(.+)$/i);
+        if (altMatch) {
+            return altMatch[1];
+        }
+        return null;
+    }
+    // Fetch attachments for a list of message IDs.
+    getAttachmentsForMessages(messageIds) {
+        if (messageIds.length === 0)
+            return new Map();
+        const placeholders = messageIds.map(() => "?").join(",");
+        const stmt = this.db.prepare(`
+      SELECT
+        a.ROWID as rowid,
+        a.guid,
+        a.filename,
+        a.mime_type as mimeType,
+        a.uti,
+        a.transfer_name as transferName,
+        a.total_bytes as totalBytes,
+        a.is_sticker as isSticker,
+        a.transfer_state as transferState,
+        m.is_audio_message as isAudioMessage,
+        maj.message_id as messageId
+      FROM attachment a
+      JOIN message_attachment_join maj ON a.ROWID = maj.attachment_id
+      JOIN message m ON maj.message_id = m.ROWID
+      WHERE maj.message_id IN (${placeholders})
+        AND a.hide_attachment = 0
+        AND a.transfer_state IN (0, 5)
+      ORDER BY a.created_date ASC
+    `);
+        const rows = stmt.all(...messageIds);
+        // Group by message ID and transform
+        const result = new Map();
+        for (const row of rows) {
+            const attachment = {
+                rowid: row.rowid,
+                guid: row.guid,
+                filename: row.filename,
+                mimeType: row.mimeType,
+                uti: row.uti,
+                transferName: row.transferName,
+                totalBytes: row.totalBytes,
+                isSticker: row.isSticker === 1,
+                isAudioMessage: row.isAudioMessage === 1,
+                localPath: this.resolveAttachmentPath(row.filename),
+                type: this.classifyAttachmentType(row),
+            };
+            const existing = result.get(row.messageId);
+            if (existing) {
+                existing.push(attachment);
+            }
+            else {
+                result.set(row.messageId, [attachment]);
             }
         }
         return result;
@@ -405,7 +516,10 @@ class DatabaseService {
         const messageGuids = messageRows.map((row) => row.guid);
         const reactionRows = this.getReactionsForMessages(messageGuids);
         const reactionsByGuid = this.processReactions(reactionRows);
-        // Transform rows to API response format with reactions
+        // Fetch attachments for these messages
+        const messageRowids = messageRows.map((row) => row.rowid);
+        const attachmentsByMessage = this.getAttachmentsForMessages(messageRowids);
+        // Transform rows to API response format with reactions and attachments
         const messages = messageRows.map((row) => ({
             rowid: row.rowid,
             guid: row.guid,
@@ -422,6 +536,7 @@ class DatabaseService {
                 }
                 : undefined,
             reactions: reactionsByGuid.get(row.guid) ?? [],
+            attachments: attachmentsByMessage.get(row.rowid) ?? [],
         }));
         // Reverse to chronological order (oldest first for display)
         return {

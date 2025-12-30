@@ -50,6 +50,9 @@ export type ElectronAPI = {
   rebuildSearchIndex: () => Promise<IndexBuildResult>;
   getHandles: () => Promise<Handle[]>;
   getChatsForFilter: () => Promise<ChatFilterOption[]>;
+
+  // Attachment API
+  getAttachmentFileUrl: (relativePath: string) => Promise<string | null>;
 };
 
 // Extend Window interface with electronAPI

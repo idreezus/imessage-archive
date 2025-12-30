@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import type { Message } from '@/types';
 import { ReactionStack } from './reaction-stack';
 import { ReactionPopover } from './reaction-popover';
+import { AttachmentGrid, Lightbox } from './attachments';
 
 type MessageBubbleProps = {
   message: Message;
@@ -52,8 +53,30 @@ export function MessageBubble({
   isHighlighted = false,
 }: MessageBubbleProps) {
   const [showReactionDetails, setShowReactionDetails] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+
   const isFromMe = message.isFromMe;
   const hasReactions = message.reactions && message.reactions.length > 0;
+  const hasAttachments = message.attachments && message.attachments.length > 0;
+  // Clean text by removing object replacement chars and trimming
+  const displayText = message.text?.replace(/\ufffc/g, '').trim() || null;
+  const hasText = displayText && displayText.length > 0;
+
+  // Filter attachments that can be viewed in lightbox (images and videos)
+  const lightboxAttachments = hasAttachments
+    ? message.attachments.filter((a) => a.type === 'image' || a.type === 'video')
+    : [];
+
+  const handleOpenLightbox = useCallback((index: number) => {
+    // Find the index in the lightbox attachments array
+    const attachment = message.attachments[index];
+    const lightboxIdx = lightboxAttachments.findIndex((a) => a.rowid === attachment.rowid);
+    if (lightboxIdx !== -1) {
+      setLightboxIndex(lightboxIdx);
+      setLightboxOpen(true);
+    }
+  }, [message.attachments, lightboxAttachments]);
 
   return (
     <div
@@ -105,30 +128,62 @@ export function MessageBubble({
               </ReactionPopover>
             )}
 
-            {/* Message bubble with theme-based coloring */}
-            <div
-              className={cn(
-                'px-4 py-2 rounded-2xl',
-                isFromMe
-                  ? 'bg-primary text-primary-foreground' // Sent: darker theme color
-                  : 'bg-muted text-foreground', // Received: muted background
-                // Add top margin when reactions present to avoid overlap
-                hasReactions && 'mt-3'
-              )}
-            >
-              {message.text ? (
-                <p className="whitespace-pre-wrap wrap-break-words">
-                  {message.text}
-                </p>
-              ) : (
-                <p className="italic text-sm opacity-70">
-                  [Attachment or unsupported content]
-                </p>
-              )}
-            </div>
+            {/* Attachment-only messages: render without bubble wrapper */}
+            {hasAttachments && !hasText ? (
+              <div className={cn(hasReactions && 'mt-3')}>
+                <AttachmentGrid
+                  attachments={message.attachments}
+                  onOpenLightbox={handleOpenLightbox}
+                />
+              </div>
+            ) : (
+              /* Message bubble with theme-based coloring */
+              <div
+                className={cn(
+                  'px-4 py-2 rounded-2xl',
+                  isFromMe
+                    ? 'bg-primary text-primary-foreground' // Sent: darker theme color
+                    : 'bg-muted text-foreground', // Received: muted background
+                  // Add top margin when reactions present to avoid overlap
+                  hasReactions && 'mt-3',
+                  // Adjust padding for attachments with text
+                  hasAttachments && 'p-1'
+                )}
+              >
+                {hasAttachments ? (
+                  <div className="space-y-2">
+                    <AttachmentGrid
+                      attachments={message.attachments}
+                      onOpenLightbox={handleOpenLightbox}
+                    />
+                    <p className="whitespace-pre-wrap wrap-break-words px-3 py-1">
+                      {displayText}
+                    </p>
+                  </div>
+                ) : hasText ? (
+                  <p className="whitespace-pre-wrap wrap-break-words">
+                    {displayText}
+                  </p>
+                ) : (
+                  <p className="italic text-sm opacity-70">
+                    [Unsupported content]
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Lightbox for viewing images and videos */}
+      {lightboxAttachments.length > 0 && (
+        <Lightbox
+          attachments={lightboxAttachments}
+          initialIndex={lightboxIndex}
+          isOpen={lightboxOpen}
+          onClose={() => setLightboxOpen(false)}
+        />
+      )}
     </div>
   );
 }
