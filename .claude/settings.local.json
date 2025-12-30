@@ -20,7 +20,8 @@
       "Bash(python3:*)",
       "Bash(xargs ls:*)",
       "Bash(ls:*)",
-      "Bash(time sqlite3:*)"
+      "Bash(time sqlite3:*)",
+      "Bash(cat:*)"
     ]
   }
 }

@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { cn } from '@/lib/utils';
-import type { Message } from '@/types';
+import type { Message, Attachment } from '@/types';
 import { ReactionStack } from './reaction-stack';
 import { ReactionPopover } from './reaction-popover';
 import { AttachmentGrid, Lightbox } from './attachments';
@@ -45,6 +45,11 @@ function formatDate(timestamp: number): string {
   });
 }
 
+// Check if an attachment is a media type (image or video) that should render standalone
+function isMediaAttachment(attachment: Attachment): boolean {
+  return attachment.type === 'image' || attachment.type === 'video';
+}
+
 // Individual message bubble with styling based on sender and service.
 export function MessageBubble({
   message,
@@ -63,20 +68,44 @@ export function MessageBubble({
   const displayText = message.text?.replace(/\ufffc/g, '').trim() || null;
   const hasText = displayText && displayText.length > 0;
 
+  // Separate media attachments (images/videos) from non-media attachments
+  // Media attachments are NEVER rendered inside bubbles (iMessage behavior)
+  const { mediaAttachments, nonMediaAttachments } = useMemo(() => {
+    if (!hasAttachments) {
+      return { mediaAttachments: [] as Attachment[], nonMediaAttachments: [] as Attachment[] };
+    }
+    const media: Attachment[] = [];
+    const nonMedia: Attachment[] = [];
+    for (const attachment of message.attachments) {
+      if (isMediaAttachment(attachment)) {
+        media.push(attachment);
+      } else {
+        nonMedia.push(attachment);
+      }
+    }
+    return { mediaAttachments: media, nonMediaAttachments: nonMedia };
+  }, [hasAttachments, message.attachments]);
+
+  const hasMediaAttachments = mediaAttachments.length > 0;
+  const hasNonMediaAttachments = nonMediaAttachments.length > 0;
+
   // Filter attachments that can be viewed in lightbox (images and videos)
-  const lightboxAttachments = hasAttachments
-    ? message.attachments.filter((a) => a.type === 'image' || a.type === 'video')
-    : [];
+  const lightboxAttachments = mediaAttachments;
 
   const handleOpenLightbox = useCallback((index: number) => {
-    // Find the index in the lightbox attachments array
-    const attachment = message.attachments[index];
+    // Find the index in the lightbox attachments array (media only)
+    const attachment = mediaAttachments[index];
     const lightboxIdx = lightboxAttachments.findIndex((a) => a.rowid === attachment.rowid);
     if (lightboxIdx !== -1) {
       setLightboxIndex(lightboxIdx);
       setLightboxOpen(true);
     }
-  }, [message.attachments, lightboxAttachments]);
+  }, [mediaAttachments, lightboxAttachments]);
+
+  const handleOpenLightboxForNonMedia = useCallback((_index: number) => {
+    // Non-media attachments don't open in lightbox
+    // This is a no-op but kept for interface consistency
+  }, []);
 
   return (
     <div
@@ -104,71 +133,133 @@ export function MessageBubble({
             </p>
           )}
 
-          {/* Bubble wrapper with relative positioning for reactions */}
-          <div className="relative">
-            {/* Reaction stack */}
-            {hasReactions && (
-              <ReactionPopover
-                reactions={message.reactions}
-                open={showReactionDetails}
-                onOpenChange={setShowReactionDetails}
-              >
-                <div
-                  className={cn(
-                    'absolute -top-2 cursor-pointer',
-                    isFromMe ? '-left-1' : '-right-1'
-                  )}
-                  onClick={() => setShowReactionDetails(true)}
-                >
-                  <ReactionStack
+          {/* Content wrapper - media attachments are always standalone, never in bubbles */}
+          <div className="space-y-1">
+            {/* Media attachments (images/videos) - ALWAYS rendered standalone, like iMessage */}
+            {hasMediaAttachments && (
+              <div className="relative">
+                {/* Reactions on media if no text/non-media follows */}
+                {hasReactions && !hasText && !hasNonMediaAttachments && (
+                  <ReactionPopover
                     reactions={message.reactions}
-                    isFromMe={isFromMe}
-                  />
-                </div>
-              </ReactionPopover>
-            )}
-
-            {/* Attachment-only messages: render without bubble wrapper */}
-            {hasAttachments && !hasText ? (
-              <div className={cn(hasReactions && 'mt-3')}>
+                    open={showReactionDetails}
+                    onOpenChange={setShowReactionDetails}
+                  >
+                    <div
+                      className={cn(
+                        'absolute -top-2 cursor-pointer z-10',
+                        isFromMe ? '-left-1' : '-right-1'
+                      )}
+                      onClick={() => setShowReactionDetails(true)}
+                    >
+                      <ReactionStack
+                        reactions={message.reactions}
+                        isFromMe={isFromMe}
+                      />
+                    </div>
+                  </ReactionPopover>
+                )}
                 <AttachmentGrid
-                  attachments={message.attachments}
+                  attachments={mediaAttachments}
                   onOpenLightbox={handleOpenLightbox}
                 />
               </div>
-            ) : (
-              /* Message bubble with theme-based coloring */
-              <div
-                className={cn(
-                  'px-4 py-2 rounded-2xl',
-                  isFromMe
-                    ? 'bg-primary text-primary-foreground' // Sent: darker theme color
-                    : 'bg-muted text-foreground', // Received: muted background
-                  // Add top margin when reactions present to avoid overlap
-                  hasReactions && 'mt-3',
-                  // Adjust padding for attachments with text
-                  hasAttachments && 'p-1'
+            )}
+
+            {/* Text bubble and/or non-media attachments */}
+            {(hasText || hasNonMediaAttachments) && (
+              <div className="relative">
+                {/* Reactions on bubble */}
+                {hasReactions && (hasText || hasNonMediaAttachments) && (
+                  <ReactionPopover
+                    reactions={message.reactions}
+                    open={showReactionDetails}
+                    onOpenChange={setShowReactionDetails}
+                  >
+                    <div
+                      className={cn(
+                        'absolute -top-2 cursor-pointer z-10',
+                        isFromMe ? '-left-1' : '-right-1'
+                      )}
+                      onClick={() => setShowReactionDetails(true)}
+                    >
+                      <ReactionStack
+                        reactions={message.reactions}
+                        isFromMe={isFromMe}
+                      />
+                    </div>
+                  </ReactionPopover>
                 )}
-              >
-                {hasAttachments ? (
-                  <div className="space-y-2">
+                <div
+                  className={cn(
+                    'px-4 py-2 rounded-2xl',
+                    isFromMe
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted text-foreground',
+                    hasReactions && 'mt-3',
+                    hasNonMediaAttachments && 'p-1'
+                  )}
+                >
+                  {hasNonMediaAttachments && hasText ? (
+                    <div className="space-y-2">
+                      <AttachmentGrid
+                        attachments={nonMediaAttachments}
+                        onOpenLightbox={handleOpenLightboxForNonMedia}
+                      />
+                      <p className="whitespace-pre-wrap wrap-break-words px-3 py-1">
+                        {displayText}
+                      </p>
+                    </div>
+                  ) : hasNonMediaAttachments ? (
                     <AttachmentGrid
-                      attachments={message.attachments}
-                      onOpenLightbox={handleOpenLightbox}
+                      attachments={nonMediaAttachments}
+                      onOpenLightbox={handleOpenLightboxForNonMedia}
                     />
-                    <p className="whitespace-pre-wrap wrap-break-words px-3 py-1">
+                  ) : (
+                    <p className="whitespace-pre-wrap wrap-break-words">
                       {displayText}
                     </p>
-                  </div>
-                ) : hasText ? (
-                  <p className="whitespace-pre-wrap wrap-break-words">
-                    {displayText}
-                  </p>
-                ) : (
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Fallback for messages with no displayable content */}
+            {!hasMediaAttachments && !hasText && !hasNonMediaAttachments && (
+              <div className="relative">
+                {hasReactions && (
+                  <ReactionPopover
+                    reactions={message.reactions}
+                    open={showReactionDetails}
+                    onOpenChange={setShowReactionDetails}
+                  >
+                    <div
+                      className={cn(
+                        'absolute -top-2 cursor-pointer z-10',
+                        isFromMe ? '-left-1' : '-right-1'
+                      )}
+                      onClick={() => setShowReactionDetails(true)}
+                    >
+                      <ReactionStack
+                        reactions={message.reactions}
+                        isFromMe={isFromMe}
+                      />
+                    </div>
+                  </ReactionPopover>
+                )}
+                <div
+                  className={cn(
+                    'px-4 py-2 rounded-2xl',
+                    isFromMe
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted text-foreground',
+                    hasReactions && 'mt-3'
+                  )}
+                >
                   <p className="italic text-sm opacity-70">
                     [Unsupported content]
                   </p>
-                )}
+                </div>
               </div>
             )}
           </div>
