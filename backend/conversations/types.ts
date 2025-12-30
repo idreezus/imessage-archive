@@ -1,3 +1,6 @@
+// Backend conversation types - synced with src/types/index.ts
+// This is the source of truth for IPC response types.
+
 // Handle (contact) row from database
 export type HandleRow = {
   rowid: number;
@@ -22,6 +25,7 @@ export type ConversationRow = {
 };
 
 // Handle type for API responses
+// Synced with: src/types/index.ts
 export type Handle = {
   rowid: number;
   id: string;
@@ -29,6 +33,7 @@ export type Handle = {
 };
 
 // Conversation type for API responses
+// Synced with: src/types/index.ts
 export type Conversation = {
   rowid: number;
   guid: string;

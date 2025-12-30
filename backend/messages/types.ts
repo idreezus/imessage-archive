@@ -1,3 +1,6 @@
+// Backend message types - synced with src/types/index.ts
+// This is the source of truth for IPC response types.
+
 import { Handle } from "../conversations/types";
 import { Attachment } from "../attachments/types";
 
@@ -31,10 +34,11 @@ export type ReactionRow = {
 };
 
 // Processed reaction for API response
+// Synced with: src/types/index.ts
 export type Reaction = {
   rowid: number;
   guid: string;
-  type: number;
+  type: number; // Reaction type code (2000=love, 2001=like, etc.)
   customEmoji: string | null;
   isFromMe: boolean;
   date: number;

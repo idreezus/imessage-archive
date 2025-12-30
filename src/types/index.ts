@@ -1,3 +1,6 @@
+// Shared types - keep in sync with backend/*/types.ts
+// Backend is the source of truth for IPC response types.
+
 // Contact record from handle table
 export type Handle = {
   rowid: number;
@@ -39,10 +42,11 @@ export const REACTION_NAMES: Record<ReactionTypeCode, string> = {
 };
 
 // Individual reaction from a user
+// Synced with: backend/messages/types.ts
 export type Reaction = {
   rowid: number;
   guid: string;
-  type: ReactionTypeCode;
+  type: number; // ReactionTypeCode values (2000-2005), use REACTION_EMOJI for display
   customEmoji: string | null;
   isFromMe: boolean;
   date: number;

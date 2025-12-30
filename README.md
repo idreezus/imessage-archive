@@ -4,7 +4,7 @@ A local-only iMessage archive viewer for macOS. Browse your iMessage conversatio
 
 ## Overview
 
-MyMessage reads directly from macOS's native iMessage database (`~/Library/Messages/chat.db`) and displays conversations in a clean, iMessage-like interface. All data stays local—nothing is sent to any server.
+MyMessage reads from a local iMessage database copy (`data/chat.db`) and displays conversations in a clean, iMessage-like interface. All data stays local—nothing is sent to any server.
 
 ### Why?
 
@@ -220,14 +220,15 @@ npx @electron/rebuild
 
 ### Development Database
 
-For development, copy your iMessage database to the data directory:
+Copy your iMessage database and attachments to the data directory:
 
 ```bash
 mkdir -p data
 cp ~/Library/Messages/chat.db ./data/chat.db
+cp -r ~/Library/Messages/Attachments ./data/attachments
 ```
 
-> **Note**: The database is gitignored. In production, the app reads from `~/Library/Messages/chat.db` directly.
+> **Note**: The database and attachments are gitignored.
 
 ## Development
 
@@ -355,7 +356,7 @@ type Message = {
 ### "Database not initialized" error
 
 The app couldn't open chat.db. Check:
-1. `chat.db` exists in `data/` directory (dev) or `~/Library/Messages/` (prod)
+1. `chat.db` exists in the `data/` directory
 2. File permissions allow reading
 3. Database isn't locked by another process
 

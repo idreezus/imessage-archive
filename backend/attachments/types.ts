@@ -1,3 +1,6 @@
+// Backend attachment types - synced with src/types/index.ts
+// This is the source of truth for IPC response types.
+
 // Attachment row from database query
 export type AttachmentRow = {
   rowid: number;
@@ -24,6 +27,7 @@ export type AttachmentType =
   | "other";
 
 // Processed attachment for API response
+// Synced with: src/types/index.ts
 export type Attachment = {
   rowid: number;
   guid: string;

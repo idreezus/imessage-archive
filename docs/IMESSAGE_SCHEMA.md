@@ -1,12 +1,12 @@
 # iMessage Database Schema
 
-Technical reference for macOS's iMessage SQLite database (`~/Library/Messages/chat.db`).
+Technical reference for macOS's iMessage SQLite database.
 
 ## Overview
 
 Apple stores all iMessage and SMS data in a SQLite database. The schema uses integer primary keys (`ROWID`) and join tables for many-to-many relationships.
 
-**Location**: `~/Library/Messages/chat.db`
+**Original location**: `~/Library/Messages/chat.db` (copy to `data/chat.db` for this project)
 
 ---
 

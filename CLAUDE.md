@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-MyMessage is a local-only iMessage archive viewer for macOS built with Electron, React, and SQLite. It reads from the native iMessage database (`~/Library/Messages/chat.db`) in read-only mode.
+MyMessage is a local-only iMessage archive viewer for macOS built with Electron, React, and SQLite. It reads from a local database copy (`data/chat.db`) in read-only mode.
 
 ## Development Commands
 
@@ -70,7 +70,7 @@ const result = await window.electronAPI.getConversations({ limit: 50 })
 
 ## Database
 
-Reads macOS iMessage database. Apple timestamps require conversion:
+Reads from `data/chat.db` (an iMessage database copy). Apple timestamps require conversion:
 ```typescript
 // Apple: nanoseconds since 2001-01-01
 // JS: milliseconds since 1970-01-01
@@ -78,11 +78,12 @@ const APPLE_EPOCH_OFFSET_MS = 978307200000;
 const jsTimestamp = Math.floor(appleDate / 1_000_000) + APPLE_EPOCH_OFFSET_MS;
 ```
 
-Development uses `data/chat.db` (gitignored). Copy your iMessage DB:
+Setup (both gitignored):
 ```bash
 cp ~/Library/Messages/chat.db ./data/chat.db
+cp -r ~/Library/Messages/Attachments ./data/attachments
 ```
 
 ## Attachments
 
-Uses custom `attachment://` protocol to serve media files from the macOS attachments directory. Protocol registered in `backend/attachments/protocol.ts`.
+Uses custom `attachment://` protocol to serve media files from `data/attachments/`. Protocol registered in `backend/attachments/protocol.ts`.

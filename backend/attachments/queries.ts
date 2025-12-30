@@ -45,8 +45,8 @@ export function classifyAttachmentType(row: AttachmentRow): AttachmentType {
 }
 
 // Resolve database attachment path to local relative path.
-// Database paths: ~/Library/Messages/Attachments/XX/YY/at_Z_GUID/filename.ext
-// Local paths: data/attachments/XX/YY/at_Z_GUID/filename.ext (preserves at_ prefix)
+// Database stores paths like: ~/Library/Messages/Attachments/XX/YY/at_Z_GUID/filename.ext
+// We extract and use: data/attachments/XX/YY/at_Z_GUID/filename.ext (preserves at_ prefix)
 export function resolveAttachmentPath(dbPath: string | null): string | null {
   if (!dbPath) return null;
 
