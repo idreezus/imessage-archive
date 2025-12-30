@@ -2,6 +2,7 @@ import { memo, useState, useEffect, useCallback, useRef } from 'react';
 import { X, ChevronLeft, ChevronRight, Play } from 'lucide-react';
 import type { Attachment } from '@/types';
 import { cn } from '@/lib/utils';
+import { getThumbnailUrl, markUrlFailed } from '@/lib/attachment-url';
 import { LightboxToolbar } from './lightbox-toolbar';
 import { AttachmentInfoSheet } from './attachment-info-sheet';
 
@@ -23,10 +24,10 @@ export const Lightbox = memo(function Lightbox({
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [thumbnailUrls, setThumbnailUrls] = useState<Map<number, string>>(
-    new Map()
-  );
   const [isInfoOpen, setIsInfoOpen] = useState(false);
+  const [failedThumbnails, setFailedThumbnails] = useState<Set<number>>(
+    new Set()
+  );
   const videoRef = useRef<HTMLVideoElement>(null);
   const thumbnailRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
 
@@ -54,24 +55,6 @@ export const Lightbox = memo(function Lightbox({
       .finally(() => setIsLoading(false));
   }, [current?.localPath, isOpen]);
 
-  // Pre-fetch all thumbnail URLs when lightbox opens
-  useEffect(() => {
-    if (!isOpen || attachments.length <= 1) return;
-
-    attachments.forEach((attachment) => {
-      if (attachment.localPath && !thumbnailUrls.has(attachment.rowid)) {
-        window.electronAPI
-          .getAttachmentFileUrl(attachment.localPath)
-          .then((url) => {
-            if (url) {
-              setThumbnailUrls((prev) =>
-                new Map(prev).set(attachment.rowid, url)
-              );
-            }
-          });
-      }
-    });
-  }, [isOpen, attachments, thumbnailUrls]);
 
   // Auto-scroll to keep current thumbnail visible
   useEffect(() => {
@@ -203,7 +186,13 @@ export const Lightbox = memo(function Lightbox({
         >
           <div className="flex gap-1.5 p-2 bg-black/60 backdrop-blur-sm rounded-xl overflow-x-auto scrollbar-hide">
             {attachments.map((attachment, index) => {
-              const url = thumbnailUrls.get(attachment.rowid);
+              // Synchronous URL construction - no async, no IPC
+              const isMedia =
+                attachment.type === 'image' || attachment.type === 'video';
+              const thumbnailUrl =
+                isMedia && !failedThumbnails.has(attachment.rowid)
+                  ? getThumbnailUrl(attachment.localPath)
+                  : null;
               const isActive = index === currentIndex;
 
               return (
@@ -220,27 +209,31 @@ export const Lightbox = memo(function Lightbox({
                       : 'opacity-50 hover:opacity-75'
                   )}
                 >
-                  {url ? (
-                    attachment.type === 'video' ? (
-                      <>
-                        <video
-                          src={url}
-                          className="w-full h-full object-cover"
-                          preload="metadata"
-                        />
+                  {thumbnailUrl ? (
+                    <>
+                      <img
+                        src={thumbnailUrl}
+                        className="w-full h-full object-cover"
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                        onError={() => {
+                          markUrlFailed(thumbnailUrl);
+                          setFailedThumbnails((prev) =>
+                            new Set(prev).add(attachment.rowid)
+                          );
+                        }}
+                      />
+                      {attachment.type === 'video' && (
                         <div className="absolute inset-0 flex items-center justify-center">
                           <Play className="w-4 h-4 text-white drop-shadow" />
                         </div>
-                      </>
-                    ) : (
-                      <img
-                        src={url}
-                        className="w-full h-full object-cover"
-                        alt=""
-                      />
-                    )
+                      )}
+                    </>
                   ) : (
-                    <div className="w-full h-full bg-white/10 animate-pulse" />
+                    <div className="w-full h-full bg-white/10 flex items-center justify-center">
+                      <Play className="w-4 h-4 text-white/50" />
+                    </div>
                   )}
                 </button>
               );
