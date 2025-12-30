@@ -235,23 +235,20 @@ cp -r ~/Library/Messages/Attachments ./data/attachments
 ### Running the App
 
 ```bash
-# Terminal 1: Start Vite dev server
+# Development (starts Vite + Electron together)
 npm run dev
 
-# Terminal 2: Launch app (after Vite is running on :5173)
-npm run dev:app
+# Production build + launch
+npm run app
 ```
 
 ### Available Scripts
 
 | Script | Description |
 |--------|-------------|
-| `npm run dev` | Start Vite dev server (renderer only) |
-| `npm run dev:app` | Build backend + launch with dev server |
-| `npm run build` | Build renderer (TypeScript + Vite) |
-| `npm run build:app` | Build backend TypeScript |
-| `npm run build:all` | Build both renderer and backend |
-| `npm run app` | Launch app with built files |
+| `npm run dev` | Start Vite dev server + Electron (development) |
+| `npm run app` | Build everything, then launch Electron (production) |
+| `npm run build` | Build both frontend and backend |
 | `npm run lint` | Run ESLint |
 
 ### Rebuilding Native Modules
@@ -375,7 +372,7 @@ npx @electron/rebuild
 
 The `dist-app/package.json` file is missing. Run:
 ```bash
-npm run build:app
+npm run build
 ```
 
 This creates `dist-app/package.json` with `{"type": "commonjs"}`.

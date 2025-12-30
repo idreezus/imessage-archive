@@ -1,5 +1,6 @@
 import { getDatabaseInstance } from "../database/connection";
 import { appleToJsTimestamp } from "../database/timestamps";
+import { startTimer } from "../perf";
 import {
   Handle,
   HandleRow,
@@ -174,11 +175,14 @@ export function getConversations(options: ConversationsOptions = {}): {
   const { limit = 50, offset = 0 } = options;
 
   // Count total conversations
+  const countTimer = startTimer("db", "getConversations.count");
   const countResult = db
     .prepare(`SELECT COUNT(*) as count FROM chat`)
     .get() as { count: number };
+  countTimer.end();
 
   // Query conversations with last message date (no correlated subquery)
+  const queryTimer = startTimer("db", "getConversations.query");
   const stmt = db.prepare(`
     SELECT
       c.ROWID as rowid,
@@ -196,13 +200,21 @@ export function getConversations(options: ConversationsOptions = {}): {
   `);
 
   const rows = stmt.all(limit, offset) as Omit<ConversationRow, "lastMessageText">[];
+  queryTimer.end({ rows: rows.length });
 
   // Batch fetch all data in single queries
   const chatIds = rows.map((row) => row.rowid);
+
+  const participantsTimer = startTimer("db", "getConversations.participants");
   const participantsByChat = getParticipantsForChats(chatIds);
+  participantsTimer.end({ chats: chatIds.length });
+
+  const lastMessagesTimer = startTimer("db", "getConversations.lastMessages");
   const lastMessageTexts = getLastMessageTexts(chatIds);
+  lastMessagesTimer.end({ chats: chatIds.length });
 
   // Transform rows to API response format
+  const transformTimer = startTimer("db", "getConversations.transform");
   const conversations: Conversation[] = rows.map((row) => ({
     rowid: row.rowid,
     guid: row.guid,
@@ -214,6 +226,7 @@ export function getConversations(options: ConversationsOptions = {}): {
     lastMessageText: lastMessageTexts.get(row.rowid) ?? null,
     participants: participantsByChat.get(row.rowid) ?? [],
   }));
+  transformTimer.end({ conversations: conversations.length });
 
   return {
     conversations,

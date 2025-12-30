@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { LRUCache } from "@/lib/lru-cache";
+import { startTimer } from "@/lib/perf";
 import type {
   SearchFilters,
   SearchResultItem,
@@ -73,7 +74,9 @@ export function useSearch() {
       setError(null);
 
       try {
+        const timer = startTimer("ipc", "search");
         const response = await window.electronAPI.search(options);
+        timer.end({ results: response.results.length, total: response.total });
 
         // Check if aborted
         if (abortControllerRef.current?.signal.aborted) {

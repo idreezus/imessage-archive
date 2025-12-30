@@ -5,6 +5,7 @@ import { Empty, EmptyMedia, EmptyTitle, EmptyDescription } from '@/components/ui
 import { MessageBubble } from '@/components/message-bubble';
 import { ConversationHeader } from '@/components/conversation-header';
 import { useMessages } from '@/hooks/use-messages';
+import { useRenderTiming } from '@/lib/perf';
 import type { Conversation } from '@/types';
 
 type MessageThreadProps = {
@@ -22,6 +23,9 @@ export function MessageThread({
   const { messages, isLoading, hasMore, loadMore, setMessages, loadedChatId } = useMessages({
     chatId: conversation?.rowid ?? null,
   });
+
+  // Track render performance
+  useRenderTiming('MessageThread', { messageCount: messages.length });
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);

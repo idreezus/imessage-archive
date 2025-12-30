@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import type { Conversation } from "@/types";
+import { startTimer } from "@/lib/perf";
 
 type UseConversationsOptions = {
   initialLimit?: number;
@@ -37,7 +38,9 @@ export function useConversations(
       }
 
       try {
+        const timer = startTimer("ipc", "getConversations");
         const result = await window.electronAPI.getConversations(opts);
+        timer.end({ limit: opts.limit, offset: opts.offset });
 
         if (append) {
           setConversations((prev) => [...prev, ...result.conversations]);

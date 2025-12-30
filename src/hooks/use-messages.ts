@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { Message } from "@/types";
+import { startTimer } from "@/lib/perf";
 
 type UseMessagesOptions = {
   chatId: number | null;
@@ -74,7 +75,9 @@ export function useMessages(options: UseMessagesOptions): UseMessagesReturn {
       setIsLoading(true);
 
       try {
+        const timer = startTimer("ipc", "getMessages");
         const result = await window.electronAPI.getMessages(opts);
+        timer.end({ chatId: opts.chatId, limit: opts.limit, messages: result.messages.length });
 
         if (prepend) {
           // Prepend older messages at the beginning
@@ -142,7 +145,9 @@ export function useMessages(options: UseMessagesOptions): UseMessagesReturn {
       }
 
       // Cache is stale - refresh in background (no loading state)
+      const bgTimer = startTimer("ipc", "getMessages.background");
       window.electronAPI?.getMessages({ chatId, limit: initialLimit }).then((result) => {
+        bgTimer.end({ chatId, messages: result.messages.length });
         setMessages(result.messages);
         setHasMore(result.hasMore);
 

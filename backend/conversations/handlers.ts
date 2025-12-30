@@ -1,11 +1,11 @@
-import { ipcMain } from "electron";
 import { getConversations, getConversationById } from "./queries";
 import { ConversationsOptions } from "./types";
+import { handleWithTiming } from "../perf";
 
 // Register conversation-related IPC handlers.
 export function registerConversationHandlers(): void {
   // Fetch paginated conversation list
-  ipcMain.handle(
+  handleWithTiming(
     "db:get-conversations",
     async (_event, options: ConversationsOptions) => {
       return getConversations(options);
@@ -13,7 +13,7 @@ export function registerConversationHandlers(): void {
   );
 
   // Fetch single conversation by ID
-  ipcMain.handle(
+  handleWithTiming(
     "db:get-conversation-by-id",
     async (_event, { chatId }: { chatId: number }) => {
       return getConversationById(chatId);

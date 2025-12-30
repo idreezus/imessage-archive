@@ -15,14 +15,11 @@ npm install
 # Rebuild native modules for Electron (required after install or Electron update)
 npx @electron/rebuild
 
-# Development (run both in separate terminals, or use npm run dev)
-npm run dev:vite     # Start Vite dev server on :5173
-npm run dev:app      # Build backend + launch Electron with dev server
+# Development (starts Vite + Electron together)
+npm run dev
 
-# Build
-npm run build        # Build renderer (TypeScript + Vite)
-npm run build:app    # Build backend TypeScript to dist-app/
-npm run build:all    # Build both
+# Production build + launch
+npm run app          # Build everything, then launch Electron
 
 # Lint
 npm run lint

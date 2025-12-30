@@ -1,13 +1,13 @@
-import { ipcMain } from "electron";
 import { isDatabaseOpen } from "../database/connection";
 import { getDatabasePath } from "../shared/paths";
 import { getMessages, getMessagesAroundDate } from "./queries";
 import { MessagesOptions } from "./types";
+import { handleWithTiming } from "../perf";
 
 // Register message-related IPC handlers.
 export function registerMessageHandlers(): void {
   // Fetch messages for a specific conversation
-  ipcMain.handle(
+  handleWithTiming(
     "db:get-messages",
     async (_event, options: MessagesOptions) => {
       return getMessages(options);
@@ -15,7 +15,7 @@ export function registerMessageHandlers(): void {
   );
 
   // Get database connection status
-  ipcMain.handle("db:get-status", () => {
+  handleWithTiming("db:get-status", () => {
     return {
       connected: isDatabaseOpen(),
       path: getDatabasePath(),
@@ -23,7 +23,7 @@ export function registerMessageHandlers(): void {
   });
 
   // Get messages around a specific date (for scroll-to navigation)
-  ipcMain.handle(
+  handleWithTiming(
     "db:get-messages-around-date",
     async (
       _event,

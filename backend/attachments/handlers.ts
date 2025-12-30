@@ -1,13 +1,13 @@
-import { ipcMain } from "electron";
 import * as path from "path";
 import * as fs from "fs";
 import { getAttachmentsBasePath } from "./paths";
+import { handleWithTiming } from "../perf";
 
 // Register attachment-related IPC handlers.
 export function registerAttachmentHandlers(): void {
   // Get attachment file URL from relative path
   // Uses custom attachment:// protocol to bypass same-origin restrictions in dev mode
-  ipcMain.handle(
+  handleWithTiming(
     "attachment:get-file-url",
     async (_event, { relativePath }: { relativePath: string }) => {
       if (!relativePath) return null;

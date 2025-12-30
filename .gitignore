@@ -27,3 +27,5 @@ dist-ssr
 
 chat.db*
 data/
+
+.env.local

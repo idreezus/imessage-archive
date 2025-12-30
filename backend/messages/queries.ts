@@ -1,5 +1,6 @@
 import { getDatabaseInstance } from "../database/connection";
 import { appleToJsTimestamp, jsToAppleTimestamp } from "../database/timestamps";
+import { startTimer } from "../perf";
 import { getReactionsForMessages, processReactions } from "./reactions";
 import { getAttachmentsForMessages } from "../attachments/queries";
 import { Message, MessageRow, MessagesOptions } from "./types";
@@ -166,22 +167,29 @@ export function getMessages(options: MessagesOptions): {
   query += ` ORDER BY m.date DESC LIMIT ?`;
   params.push(limit + 1);
 
+  const queryTimer = startTimer("db", "getMessages.query");
   const stmt = db.prepare(query);
   const rows = stmt.all(...params) as MessageRow[];
+  queryTimer.end({ rows: rows.length });
 
   const hasMore = rows.length > limit;
   const messageRows = hasMore ? rows.slice(0, limit) : rows;
 
   // Fetch reactions for these messages
+  const reactionsTimer = startTimer("db", "getMessages.reactions");
   const messageGuids = messageRows.map((row) => row.guid);
   const reactionRows = getReactionsForMessages(messageGuids);
   const reactionsByGuid = processReactions(reactionRows);
+  reactionsTimer.end({ messages: messageGuids.length });
 
   // Fetch attachments for these messages
+  const attachmentsTimer = startTimer("db", "getMessages.attachments");
   const messageRowids = messageRows.map((row) => row.rowid);
   const attachmentsByMessage = getAttachmentsForMessages(messageRowids);
+  attachmentsTimer.end({ messages: messageRowids.length });
 
   // Transform rows to API response format with reactions and attachments
+  const transformTimer = startTimer("db", "getMessages.transform");
   const messages: Message[] = messageRows.map((row) => ({
     rowid: row.rowid,
     guid: row.guid,
@@ -200,6 +208,7 @@ export function getMessages(options: MessagesOptions): {
     reactions: reactionsByGuid.get(row.guid) ?? [],
     attachments: attachmentsByMessage.get(row.rowid) ?? [],
   }));
+  transformTimer.end({ messages: messages.length });
 
   // Reverse to chronological order (oldest first for display)
   return {

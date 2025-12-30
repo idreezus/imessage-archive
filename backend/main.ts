@@ -1,5 +1,10 @@
-import { app, BrowserWindow } from "electron";
+import { config } from "dotenv";
 import * as path from "path";
+
+// Load .env.local for local development (includes PERF_ENABLED)
+config({ path: path.join(__dirname, "../.env.local") });
+
+import { app, BrowserWindow } from "electron";
 
 // CRITICAL: Import attachments first - registerSchemesAsPrivileged runs on module load
 import { registerAttachmentProtocol, registerAttachmentHandlers } from "./attachments";
@@ -13,6 +18,7 @@ import {
   registerSearchHandlers,
   initializeSearchService,
 } from "./search";
+import { startPhase, endStartup } from "./perf";
 
 let mainWindow: BrowserWindow | null = null;
 let searchService: SearchIndexService | null = null;
@@ -98,11 +104,22 @@ function registerAllHandlers(): void {
 
 // Application lifecycle handlers
 app.whenReady().then(() => {
+  startPhase("registerAttachmentProtocol");
   registerAttachmentProtocol();
+
+  startPhase("initializeDatabase");
   initializeDatabase();
+
+  startPhase("initializeSearchIndex");
   initializeSearchIndex();
+
+  startPhase("registerAllHandlers");
   registerAllHandlers();
+
+  startPhase("createWindow");
   createWindow();
+
+  endStartup();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {

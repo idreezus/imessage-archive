@@ -6,16 +6,17 @@ export function aggregateReactions(reactions: Reaction[]): AggregatedReaction[] 
   const grouped = new Map<ReactionTypeCode, AggregatedReaction>();
 
   for (const reaction of reactions) {
-    if (!grouped.has(reaction.type)) {
-      grouped.set(reaction.type, {
-        type: reaction.type,
-        emoji: reaction.customEmoji ?? REACTION_EMOJI[reaction.type],
+    const typeCode = reaction.type as ReactionTypeCode;
+    if (!grouped.has(typeCode)) {
+      grouped.set(typeCode, {
+        type: typeCode,
+        emoji: reaction.customEmoji ?? REACTION_EMOJI[typeCode],
         count: 0,
         reactors: [],
       });
     }
 
-    const agg = grouped.get(reaction.type)!;
+    const agg = grouped.get(typeCode)!;
     agg.count++;
     agg.reactors.push({
       identifier: reaction.isFromMe
