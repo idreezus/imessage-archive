@@ -88,33 +88,6 @@ function getAttachmentsBasePath() {
     // Development: local copy in data directory
     return path.join(__dirname, "..", "data", "attachments");
 }
-// Get MIME type from file extension
-function getMimeType(filePath) {
-    const ext = path.extname(filePath).toLowerCase();
-    const mimeTypes = {
-        ".jpg": "image/jpeg",
-        ".jpeg": "image/jpeg",
-        ".png": "image/png",
-        ".gif": "image/gif",
-        ".webp": "image/webp",
-        ".heic": "image/heic",
-        ".heif": "image/heif",
-        ".tiff": "image/tiff",
-        ".tif": "image/tiff",
-        ".mp4": "video/mp4",
-        ".mov": "video/quicktime",
-        ".m4v": "video/x-m4v",
-        ".webm": "video/webm",
-        ".m4a": "audio/x-m4a",
-        ".mp3": "audio/mpeg",
-        ".wav": "audio/wav",
-        ".aac": "audio/aac",
-        ".caf": "audio/x-caf",
-        ".amr": "audio/amr",
-        ".pdf": "application/pdf",
-    };
-    return mimeTypes[ext] || "application/octet-stream";
-}
 // Register custom protocol for serving attachments
 function registerAttachmentProtocol() {
     electron_1.protocol.handle("attachment", async (request) => {
@@ -127,23 +100,19 @@ function registerAttachmentProtocol() {
             if (relativePath.startsWith("file/")) {
                 relativePath = relativePath.slice("file/".length);
             }
-            console.log("[Protocol] Request URL:", request.url);
-            console.log("[Protocol] Relative path:", relativePath);
             const basePath = getAttachmentsBasePath();
             const fullPath = path.join(basePath, relativePath);
             // Security: Ensure resolved path is within attachments directory
             const resolvedPath = path.resolve(fullPath);
             const resolvedBase = path.resolve(basePath);
             if (!resolvedPath.startsWith(resolvedBase)) {
-                console.error("[Protocol] Path traversal blocked:", resolvedPath);
                 return new Response("Forbidden", { status: 403 });
             }
             // Check file exists
             try {
                 await fs.promises.access(resolvedPath, fs.constants.R_OK);
             }
-            catch (accessError) {
-                console.error("[Protocol] File not found:", resolvedPath, accessError);
+            catch {
                 return new Response("Not Found", { status: 404 });
             }
             const ext = path.extname(resolvedPath).toLowerCase();
@@ -165,11 +134,9 @@ function registerAttachmentProtocol() {
                     return new Response("HEIC conversion failed", { status: 500 });
                 }
             }
-            // Use net.fetch for all files - it handles range requests automatically
-            // With standard: true + stream: true, this should work for video/audio
-            const fileUrl = (0, url_1.pathToFileURL)(resolvedPath).toString();
-            console.log("[Protocol] Fetching file URL:", fileUrl);
-            return electron_1.net.fetch(fileUrl);
+            // Use net.fetch - handles range requests automatically for video/audio
+            // Requires: standard: true + stream: true in registerSchemesAsPrivileged
+            return electron_1.net.fetch((0, url_1.pathToFileURL)(resolvedPath).toString());
         }
         catch (error) {
             console.error("Protocol handler error:", error);
