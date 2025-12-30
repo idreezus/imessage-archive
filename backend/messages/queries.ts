@@ -84,9 +84,9 @@ export function getMessagesAroundDate(
   // Combine and sort chronologically
   const allRows = [...beforeRows.reverse(), ...afterRows];
 
-  // Get reactions for all messages
+  // Get reactions for all messages in this chat
   const messageGuids = allRows.map((row) => row.guid);
-  const reactionRows = getReactionsForMessages(messageGuids);
+  const reactionRows = getReactionsForMessages(chatId, messageGuids);
   const reactionsByGuid = processReactions(reactionRows);
 
   // Get attachments for all messages
@@ -175,10 +175,10 @@ export function getMessages(options: MessagesOptions): {
   const hasMore = rows.length > limit;
   const messageRows = hasMore ? rows.slice(0, limit) : rows;
 
-  // Fetch reactions for these messages
+  // Fetch reactions for these messages in this chat
   const reactionsTimer = startTimer("db", "getMessages.reactions");
   const messageGuids = messageRows.map((row) => row.guid);
-  const reactionRows = getReactionsForMessages(messageGuids);
+  const reactionRows = getReactionsForMessages(chatId, messageGuids);
   const reactionsByGuid = processReactions(reactionRows);
   reactionsTimer.end({ messages: messageGuids.length });
 

@@ -2,18 +2,30 @@ import { getDatabaseInstance } from "../database/connection";
 import { appleToJsTimestamp } from "../database/timestamps";
 import { ReactionRow, Reaction } from "./types";
 
-// Fetch reactions for a list of message GUIDs.
+// Extract the base GUID from an associated_message_guid (strips "p:N/" prefix)
+function extractTargetGuid(associatedGuid: string): string {
+  const slashIndex = associatedGuid.indexOf("/");
+  return slashIndex >= 0 ? associatedGuid.slice(slashIndex + 1) : associatedGuid;
+}
+
+// Fetch reactions for messages in a specific chat, filtered to the given GUIDs.
+// This approach uses the chat_id index for efficient filtering, then filters by GUID in JS.
 // Note: associated_message_guid has format "p:N/GUID" where N is the part index
-export function getReactionsForMessages(messageGuids: string[]): ReactionRow[] {
+export function getReactionsForMessages(
+  chatId: number,
+  messageGuids: string[]
+): ReactionRow[] {
   if (messageGuids.length === 0) return [];
 
   const db = getDatabaseInstance();
-  const placeholders = messageGuids.map(() => "?").join(",");
+
+  // Query all reactions in this chat using the chat_id index
+  // SUBSTR/INSTR in SELECT is fine - it's only in WHERE that it prevents index usage
   const stmt = db.prepare(`
     SELECT
       r.ROWID as rowid,
       r.guid,
-      SUBSTR(r.associated_message_guid, INSTR(r.associated_message_guid, '/') + 1) as targetMessageGuid,
+      r.associated_message_guid as rawTargetGuid,
       r.associated_message_type as reactionType,
       r.associated_message_emoji as customEmoji,
       r.is_from_me as isFromMe,
@@ -21,13 +33,39 @@ export function getReactionsForMessages(messageGuids: string[]): ReactionRow[] {
       h.id as reactorIdentifier,
       h.service as reactorService
     FROM message r
+    JOIN chat_message_join cmj ON r.ROWID = cmj.message_id
     LEFT JOIN handle h ON r.handle_id = h.ROWID
-    WHERE SUBSTR(r.associated_message_guid, INSTR(r.associated_message_guid, '/') + 1) IN (${placeholders})
+    WHERE cmj.chat_id = ?
       AND r.associated_message_type >= 2000
     ORDER BY r.date ASC
   `);
 
-  return stmt.all(...messageGuids) as ReactionRow[];
+  const allChatReactions = stmt.all(chatId) as (Omit<ReactionRow, "targetMessageGuid"> & {
+    rawTargetGuid: string;
+  })[];
+
+  // Filter to only reactions targeting our messages using O(1) Set lookups
+  const targetGuidSet = new Set(messageGuids);
+  const filteredReactions: ReactionRow[] = [];
+
+  for (const row of allChatReactions) {
+    const targetGuid = extractTargetGuid(row.rawTargetGuid);
+    if (targetGuidSet.has(targetGuid)) {
+      filteredReactions.push({
+        rowid: row.rowid,
+        guid: row.guid,
+        targetMessageGuid: targetGuid,
+        reactionType: row.reactionType,
+        customEmoji: row.customEmoji,
+        isFromMe: row.isFromMe,
+        date: row.date,
+        reactorIdentifier: row.reactorIdentifier,
+        reactorService: row.reactorService,
+      });
+    }
+  }
+
+  return filteredReactions;
 }
 
 // Process raw reactions: filter removals, group by target message.

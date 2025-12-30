@@ -10,3 +10,13 @@ export {
   appleToJsTimestamp,
   jsToAppleTimestamp,
 } from "./timestamps";
+
+export {
+  openCacheDatabase,
+  closeCacheDatabase,
+  getCacheInstance,
+  isCacheStale,
+  buildConversationCache,
+  getCachedConversations,
+  type CachedConversation,
+} from "./cache";

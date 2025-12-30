@@ -9,7 +9,15 @@ import { app, BrowserWindow } from "electron";
 // CRITICAL: Import attachments first - registerSchemesAsPrivileged runs on module load
 import { registerAttachmentProtocol, registerAttachmentHandlers } from "./attachments";
 
-import { openDatabase, closeDatabase, getDatabaseInstance } from "./database";
+import {
+  openDatabase,
+  closeDatabase,
+  getDatabaseInstance,
+  openCacheDatabase,
+  closeCacheDatabase,
+  isCacheStale,
+  buildConversationCache,
+} from "./database";
 import { getDatabasePath, getSearchIndexPath } from "./shared";
 import { registerConversationHandlers } from "./conversations";
 import { registerMessageHandlers } from "./messages";
@@ -64,6 +72,29 @@ function initializeDatabase(): void {
   }
 }
 
+// Initialize conversation cache for fast startup.
+function initializeConversationCache(): void {
+  try {
+    openCacheDatabase();
+
+    if (isCacheStale()) {
+      console.log("Building conversation cache...");
+      const result = buildConversationCache();
+      if (result.success) {
+        console.log(
+          `Conversation cache built: ${result.chatCount} chats in ${result.duration}ms`
+        );
+      } else {
+        console.error("Failed to build conversation cache");
+      }
+    } else {
+      console.log("Using existing conversation cache");
+    }
+  } catch (error) {
+    console.error("Failed to initialize conversation cache:", error);
+  }
+}
+
 // Initialize search index service.
 function initializeSearchIndex(): void {
   const indexPath = getSearchIndexPath();
@@ -110,6 +141,9 @@ app.whenReady().then(() => {
   startPhase("initializeDatabase");
   initializeDatabase();
 
+  startPhase("initializeConversationCache");
+  initializeConversationCache();
+
   startPhase("initializeSearchIndex");
   initializeSearchIndex();
 
@@ -138,5 +172,6 @@ app.on("quit", () => {
   if (searchService) {
     searchService.close();
   }
+  closeCacheDatabase();
   closeDatabase();
 });

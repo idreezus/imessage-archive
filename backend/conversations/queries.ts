@@ -1,5 +1,6 @@
 import { getDatabaseInstance } from "../database/connection";
 import { appleToJsTimestamp } from "../database/timestamps";
+import { getCachedConversations, type CachedConversation } from "../database/cache";
 import { startTimer } from "../perf";
 import {
   Handle,
@@ -167,6 +168,7 @@ export function getLastMessageTexts(chatIds: number[]): Map<number, string | nul
 }
 
 // Fetch paginated list of conversations with last message preview.
+// Uses the pre-built conversation cache for fast startup.
 export function getConversations(options: ConversationsOptions = {}): {
   conversations: Conversation[];
   total: number;
@@ -174,63 +176,78 @@ export function getConversations(options: ConversationsOptions = {}): {
   const db = getDatabaseInstance();
   const { limit = 50, offset = 0 } = options;
 
-  // Count total conversations
-  const countTimer = startTimer("db", "getConversations.count");
-  const countResult = db
-    .prepare(`SELECT COUNT(*) as count FROM chat`)
-    .get() as { count: number };
-  countTimer.end();
+  // Get cached conversation data (last_message_date, last_message_text already computed)
+  const cacheTimer = startTimer("db", "getConversations.cache");
+  const { conversations: cachedConversations, total } = getCachedConversations({
+    limit,
+    offset,
+  });
+  cacheTimer.end({ cached: cachedConversations.length });
 
-  // Query conversations with last message date (no correlated subquery)
-  const queryTimer = startTimer("db", "getConversations.query");
-  const stmt = db.prepare(`
-    SELECT
-      c.ROWID as rowid,
-      c.guid,
-      c.chat_identifier as chatIdentifier,
-      c.display_name as displayName,
-      c.style,
-      MAX(m.date) as lastMessageDate
-    FROM chat c
-    LEFT JOIN chat_message_join cmj ON c.ROWID = cmj.chat_id
-    LEFT JOIN message m ON cmj.message_id = m.ROWID
-    GROUP BY c.ROWID
-    ORDER BY lastMessageDate DESC
-    LIMIT ? OFFSET ?
-  `);
+  // Get chat metadata from source database
+  const chatIds = cachedConversations.map((c) => c.chatId);
 
-  const rows = stmt.all(limit, offset) as Omit<ConversationRow, "lastMessageText">[];
-  queryTimer.end({ rows: rows.length });
+  if (chatIds.length === 0) {
+    return { conversations: [], total };
+  }
 
-  // Batch fetch all data in single queries
-  const chatIds = rows.map((row) => row.rowid);
+  const metadataTimer = startTimer("db", "getConversations.metadata");
+  const placeholders = chatIds.map(() => "?").join(",");
+  const chatMetadata = db
+    .prepare(
+      `
+      SELECT
+        ROWID as rowid,
+        guid,
+        chat_identifier as chatIdentifier,
+        display_name as displayName,
+        style
+      FROM chat
+      WHERE ROWID IN (${placeholders})
+    `
+    )
+    .all(...chatIds) as {
+    rowid: number;
+    guid: string;
+    chatIdentifier: string;
+    displayName: string | null;
+    style: number;
+  }[];
+  metadataTimer.end({ chats: chatMetadata.length });
 
+  // Create lookup map for chat metadata
+  const metadataByChat = new Map(chatMetadata.map((c) => [c.rowid, c]));
+
+  // Get participants
   const participantsTimer = startTimer("db", "getConversations.participants");
   const participantsByChat = getParticipantsForChats(chatIds);
   participantsTimer.end({ chats: chatIds.length });
 
-  const lastMessagesTimer = startTimer("db", "getConversations.lastMessages");
-  const lastMessageTexts = getLastMessageTexts(chatIds);
-  lastMessagesTimer.end({ chats: chatIds.length });
-
-  // Transform rows to API response format
+  // Transform to API response format (maintaining cache order which is sorted by date)
   const transformTimer = startTimer("db", "getConversations.transform");
-  const conversations: Conversation[] = rows.map((row) => ({
-    rowid: row.rowid,
-    guid: row.guid,
-    chatIdentifier: row.chatIdentifier,
-    displayName: row.displayName,
-    style: row.style,
-    isGroup: row.style === 43,
-    lastMessageDate: appleToJsTimestamp(row.lastMessageDate),
-    lastMessageText: lastMessageTexts.get(row.rowid) ?? null,
-    participants: participantsByChat.get(row.rowid) ?? [],
-  }));
+  const conversations: Conversation[] = [];
+
+  for (const cached of cachedConversations) {
+    const metadata = metadataByChat.get(cached.chatId);
+    if (!metadata) continue; // Skip if metadata not found
+
+    conversations.push({
+      rowid: cached.chatId,
+      guid: metadata.guid,
+      chatIdentifier: metadata.chatIdentifier,
+      displayName: metadata.displayName,
+      style: metadata.style,
+      isGroup: metadata.style === 43,
+      lastMessageDate: appleToJsTimestamp(cached.lastMessageDate),
+      lastMessageText: cached.lastMessageText,
+      participants: participantsByChat.get(cached.chatId) ?? [],
+    });
+  }
   transformTimer.end({ conversations: conversations.length });
 
   return {
     conversations,
-    total: countResult.count,
+    total,
   };
 }
 

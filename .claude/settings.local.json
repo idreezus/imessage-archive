@@ -17,7 +17,8 @@
       "Bash(# Check for .caf audio files \\(voice memos\\) - do they exist locally? find /Users/idreesisse/Clients/Idreezus/Projects/mymessage/data/attachments -name \"\"*.caf\"\")",
       "Bash(ffprobe:*)",
       "WebFetch(domain:github.com)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(xargs ls:*)"
     ]
   }
 }
