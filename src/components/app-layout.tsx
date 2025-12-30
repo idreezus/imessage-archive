@@ -7,7 +7,7 @@ import {
   SidebarInset,
 } from '@/components/ui/sidebar';
 import { ConversationList } from '@/components/conversation-list';
-import { MessageThread } from '@/components/message-thread';
+import { MessageThread } from '@/components/messages/components/message-thread';
 import {
   SearchProvider,
   SearchContainer,
@@ -21,23 +21,30 @@ import type { SearchResultItem } from '@/types/search';
 function AppLayoutInner() {
   const [selectedConversation, setSelectedConversation] =
     useState<Conversation | null>(null);
-  const [targetMessageRowid, setTargetMessageRowid] = useState<number | null>(null);
+  const [targetMessageRowid, setTargetMessageRowid] = useState<number | null>(
+    null
+  );
 
   const search = useSearchContext();
 
   // Handle clicking a search result
-  const handleSearchResultClick = useCallback(async (result: SearchResultItem) => {
-    try {
-      // Load the conversation
-      const conversation = await window.electronAPI.getConversationById(result.chatRowid);
-      if (conversation) {
-        setSelectedConversation(conversation);
-        setTargetMessageRowid(result.messageRowid);
+  const handleSearchResultClick = useCallback(
+    async (result: SearchResultItem) => {
+      try {
+        // Load the conversation
+        const conversation = await window.electronAPI.getConversationById(
+          result.chatRowid
+        );
+        if (conversation) {
+          setSelectedConversation(conversation);
+          setTargetMessageRowid(result.messageRowid);
+        }
+      } catch (error) {
+        console.error('Failed to load conversation:', error);
       }
-    } catch (error) {
-      console.error('Failed to load conversation:', error);
-    }
-  }, []);
+    },
+    []
+  );
 
   // Clear target after navigation complete
   const handleMessageScrollComplete = useCallback(() => {

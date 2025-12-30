@@ -21,7 +21,8 @@
       "Bash(xargs ls:*)",
       "Bash(ls:*)",
       "Bash(time sqlite3:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "WebFetch(domain:virtuoso.dev)"
     ]
   }
 }
