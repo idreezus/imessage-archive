@@ -1,0 +1,125 @@
+import { app, BrowserWindow } from "electron";
+import * as path from "path";
+
+// CRITICAL: Import attachments first - registerSchemesAsPrivileged runs on module load
+import { registerAttachmentProtocol, registerAttachmentHandlers } from "./attachments";
+
+import { openDatabase, closeDatabase, getDatabaseInstance } from "./database";
+import { getDatabasePath, getSearchIndexPath } from "./shared";
+import { registerConversationHandlers } from "./conversations";
+import { registerMessageHandlers } from "./messages";
+import {
+  SearchIndexService,
+  registerSearchHandlers,
+  initializeSearchService,
+} from "./search";
+
+let mainWindow: BrowserWindow | null = null;
+let searchService: SearchIndexService | null = null;
+
+// Create the main application window.
+function createWindow(): void {
+  mainWindow = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    minWidth: 800,
+    minHeight: 600,
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false, // Required for better-sqlite3 native module
+    },
+    titleBarStyle: "hiddenInset",
+    trafficLightPosition: { x: 16, y: 16 },
+  });
+
+  // Load renderer from Vite dev server or built files.
+  if (process.env.VITE_DEV_SERVER_URL) {
+    mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
+    mainWindow.webContents.openDevTools();
+  } else {
+    mainWindow.loadFile(path.join(__dirname, "../dist/index.html"));
+  }
+
+  mainWindow.on("closed", () => {
+    mainWindow = null;
+  });
+}
+
+// Initialize SQLite database connection.
+function initializeDatabase(): void {
+  const dbPath = getDatabasePath();
+  try {
+    openDatabase(dbPath);
+    console.log("Database connected:", dbPath);
+  } catch (error) {
+    console.error("Failed to connect to database:", error);
+  }
+}
+
+// Initialize search index service.
+function initializeSearchIndex(): void {
+  const indexPath = getSearchIndexPath();
+  try {
+    searchService = new SearchIndexService(indexPath);
+    searchService.setChatDbPath(getDatabasePath());
+    console.log("Search index initialized:", indexPath);
+
+    // Initialize search handlers with dependencies
+    const db = getDatabaseInstance();
+    initializeSearchService(searchService, db);
+
+    // Check if index needs to be built
+    const status = searchService.getIndexStatus();
+    if (!status.indexed) {
+      console.log("Building search index...");
+      const result = searchService.buildIndex(db);
+      if (result.success) {
+        console.log(
+          `Search index built: ${result.messageCount} messages in ${result.duration}ms`
+        );
+      } else {
+        console.error("Failed to build search index:", result.error);
+      }
+    }
+  } catch (error) {
+    console.error("Failed to initialize search index:", error);
+  }
+}
+
+// Register all IPC handlers.
+function registerAllHandlers(): void {
+  registerConversationHandlers();
+  registerMessageHandlers();
+  registerSearchHandlers();
+  registerAttachmentHandlers();
+}
+
+// Application lifecycle handlers
+app.whenReady().then(() => {
+  registerAttachmentProtocol();
+  initializeDatabase();
+  initializeSearchIndex();
+  registerAllHandlers();
+  createWindow();
+
+  app.on("activate", () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow();
+    }
+  });
+});
+
+app.on("window-all-closed", () => {
+  if (process.platform !== "darwin") {
+    app.quit();
+  }
+});
+
+app.on("quit", () => {
+  if (searchService) {
+    searchService.close();
+  }
+  closeDatabase();
+});

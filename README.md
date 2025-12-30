@@ -50,11 +50,12 @@ MyMessage provides an open-source alternative for viewing and navigating your me
 ┌─────────────────────────────────────────────────────────────┐
 │                     Electron Main Process                    │
 │  ┌─────────────────┐    ┌─────────────────────────────────┐ │
-│  │   main.ts       │    │   lib/database.ts               │ │
-│  │   - Window      │───▶│   - SQLite queries              │ │
-│  │   - IPC handlers│    │   - better-sqlite3              │ │
-│  └─────────────────┘    └─────────────────────────────────┘ │
-│           │                                                  │
+│  │   main.ts       │    │   Domain Modules                │ │
+│  │   - Window      │───▶│   - conversations/              │ │
+│  │   - Lifecycle   │    │   - messages/                   │ │
+│  └─────────────────┘    │   - search/                     │ │
+│           │             │   - attachments/                │ │
+│           │             └─────────────────────────────────┘ │
 │           │ IPC (invoke/handle)                             │
 │           ▼                                                  │
 │  ┌─────────────────┐                                        │
@@ -70,7 +71,8 @@ MyMessage provides an open-source alternative for viewing and navigating your me
 │  │   React App     │    │   window.electronAPI            │ │
 │  │   - Components  │◀──▶│   - getConversations()          │ │
 │  │   - Hooks       │    │   - getMessages()               │ │
-│  └─────────────────┘    └─────────────────────────────────┘ │
+│  └─────────────────┘    │   - search()                    │ │
+│                         └─────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -85,12 +87,34 @@ MyMessage provides an open-source alternative for viewing and navigating your me
 
 ```
 mymessage/
-├── electron/                    # Electron main process (CommonJS)
-│   ├── main.ts                  # App entry, window, IPC handlers
+├── backend/                     # Electron main process (CommonJS)
+│   ├── main.ts                  # App entry, window, lifecycle
 │   ├── preload.ts               # IPC bridge via contextBridge
 │   ├── tsconfig.json            # TypeScript config (CommonJS output)
-│   └── lib/
-│       └── database.ts          # SQLite queries
+│   ├── database/                # Database connection utilities
+│   │   ├── connection.ts        # SQLite singleton
+│   │   └── timestamps.ts        # Apple timestamp conversion
+│   ├── conversations/           # Conversation domain
+│   │   ├── types.ts
+│   │   ├── queries.ts
+│   │   └── handlers.ts          # IPC: db:get-conversations
+│   ├── messages/                # Message domain
+│   │   ├── types.ts
+│   │   ├── queries.ts
+│   │   ├── reactions.ts
+│   │   └── handlers.ts          # IPC: db:get-messages
+│   ├── search/                  # Search domain
+│   │   ├── types.ts
+│   │   ├── service.ts           # FTS5 index
+│   │   ├── snippets.ts
+│   │   └── handlers.ts          # IPC: search:query
+│   ├── attachments/             # Attachment domain
+│   │   ├── types.ts
+│   │   ├── queries.ts
+│   │   ├── protocol.ts          # attachment:// protocol
+│   │   └── handlers.ts
+│   └── shared/
+│       └── paths.ts             # Database/index paths
 │
 ├── src/                         # React renderer (ES Modules)
 │   ├── App.tsx                  # Root component
@@ -99,22 +123,18 @@ mymessage/
 │   ├── components/
 │   │   ├── app-layout.tsx       # Sidebar + content layout
 │   │   ├── conversation-list.tsx
-│   │   ├── conversation-item.tsx
 │   │   ├── message-thread.tsx
-│   │   ├── message-bubble.tsx
 │   │   └── ui/                  # shadcn components
 │   ├── hooks/
-│   │   ├── use-conversations.ts # Conversation fetching
-│   │   ├── use-messages.ts      # Message fetching
-│   │   └── use-mobile.ts        # Responsive hook
-│   ├── lib/
-│   │   └── utils.ts             # cn() utility
+│   │   ├── use-conversations.ts
+│   │   ├── use-messages.ts
+│   │   └── use-search.ts
 │   └── types/
 │       ├── index.ts             # Shared types
 │       └── electron.d.ts        # Window.electronAPI types
 │
 ├── dist/                        # Vite build output (renderer)
-├── dist-electron/               # TypeScript build output (main)
+├── dist-app/                    # TypeScript build output (backend)
 │   └── package.json             # Forces CommonJS in ESM project
 │
 ├── data/
@@ -217,8 +237,8 @@ cp ~/Library/Messages/chat.db ./data/chat.db
 # Terminal 1: Start Vite dev server
 npm run dev
 
-# Terminal 2: Launch Electron (after Vite is running on :5173)
-npm run dev:electron
+# Terminal 2: Launch app (after Vite is running on :5173)
+npm run dev:app
 ```
 
 ### Available Scripts
@@ -226,11 +246,11 @@ npm run dev:electron
 | Script | Description |
 |--------|-------------|
 | `npm run dev` | Start Vite dev server (renderer only) |
-| `npm run dev:electron` | Build electron + launch with dev server |
+| `npm run dev:app` | Build backend + launch with dev server |
 | `npm run build` | Build renderer (TypeScript + Vite) |
-| `npm run build:electron` | Build main process TypeScript |
-| `npm run build:all` | Build both renderer and main |
-| `npm run electron` | Launch Electron with built files |
+| `npm run build:app` | Build backend TypeScript |
+| `npm run build:all` | Build both renderer and backend |
+| `npm run app` | Launch app with built files |
 | `npm run lint` | Run ESLint |
 
 ### Rebuilding Native Modules
@@ -352,12 +372,12 @@ npx @electron/rebuild
 
 ### "exports is not defined" error
 
-The `dist-electron/package.json` file is missing. Run:
+The `dist-app/package.json` file is missing. Run:
 ```bash
-npm run build:electron
+npm run build:app
 ```
 
-This creates `dist-electron/package.json` with `{"type": "commonjs"}`.
+This creates `dist-app/package.json` with `{"type": "commonjs"}`.
 
 ## Contributing
 
