@@ -39,11 +39,25 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const electron_1 = require("electron");
 const path = __importStar(require("path"));
 const fs = __importStar(require("fs"));
-const stream_1 = require("stream");
+const url_1 = require("url");
 // @ts-expect-error - heic-convert has no type definitions
 const heic_convert_1 = __importDefault(require("heic-convert"));
 const database_1 = require("./lib/database");
 const search_index_1 = require("./lib/search-index");
+// MUST be called before app.whenReady() - enables video/audio streaming
+// We use "file/" prefix in URLs to prevent numeric path normalization (42 -> 0.0.0.42)
+electron_1.protocol.registerSchemesAsPrivileged([
+    {
+        scheme: "attachment",
+        privileges: {
+            standard: true, // Required for proper URL parsing with video
+            secure: true, // Treat as secure origin
+            supportFetchAPI: true, // Allow fetch API
+            stream: true, // CRITICAL: Enable video/audio streaming
+            bypassCSP: true, // Bypass CSP for local files
+        },
+    },
+]);
 let mainWindow = null;
 let dbService = null;
 let searchService = null;
@@ -101,51 +115,38 @@ function getMimeType(filePath) {
     };
     return mimeTypes[ext] || "application/octet-stream";
 }
-// Parse Range header (e.g., "bytes=0-1023" or "bytes=0-")
-function parseRangeHeader(rangeHeader, fileSize) {
-    const match = rangeHeader.match(/bytes=(\d*)-(\d*)/);
-    if (!match)
-        return null;
-    const start = match[1] ? parseInt(match[1], 10) : 0;
-    const end = match[2] ? parseInt(match[2], 10) : fileSize - 1;
-    if (start >= fileSize || end >= fileSize || start > end) {
-        return null;
-    }
-    return { start, end };
-}
 // Register custom protocol for serving attachments
-// This bypasses same-origin restrictions when running from Vite dev server
 function registerAttachmentProtocol() {
     electron_1.protocol.handle("attachment", async (request) => {
         try {
-            // Extract relative path from URL (attachment://path/to/file)
-            // URL structure: attachment://firstSegment/rest/of/path
-            // - hostname = firstSegment (e.g., "c7")
-            // - pathname = /rest/of/path (e.g., "/07/GUID/file.jpg")
-            const url = new URL(request.url);
-            const hostname = decodeURIComponent(url.hostname);
-            const pathname = decodeURIComponent(url.pathname);
-            // Combine hostname + pathname (removing leading slash from pathname)
-            const relativePath = hostname + pathname;
+            // Extract relative path from URL
+            // URL format: attachment://file/42/02/GUID/file.jpg
+            // The "file/" prefix prevents browser from normalizing numeric paths as IPs
+            let relativePath = decodeURIComponent(request.url.slice("attachment://".length));
+            // Strip the "file/" prefix that we added to prevent IP normalization
+            if (relativePath.startsWith("file/")) {
+                relativePath = relativePath.slice("file/".length);
+            }
+            console.log("[Protocol] Request URL:", request.url);
+            console.log("[Protocol] Relative path:", relativePath);
             const basePath = getAttachmentsBasePath();
             const fullPath = path.join(basePath, relativePath);
             // Security: Ensure resolved path is within attachments directory
             const resolvedPath = path.resolve(fullPath);
             const resolvedBase = path.resolve(basePath);
             if (!resolvedPath.startsWith(resolvedBase)) {
+                console.error("[Protocol] Path traversal blocked:", resolvedPath);
                 return new Response("Forbidden", { status: 403 });
             }
-            // Get file stats
-            let stats;
+            // Check file exists
             try {
-                stats = await fs.promises.stat(resolvedPath);
+                await fs.promises.access(resolvedPath, fs.constants.R_OK);
             }
-            catch {
+            catch (accessError) {
+                console.error("[Protocol] File not found:", resolvedPath, accessError);
                 return new Response("Not Found", { status: 404 });
             }
-            const fileSize = stats.size;
             const ext = path.extname(resolvedPath).toLowerCase();
-            const mimeType = getMimeType(resolvedPath);
             // Handle HEIC conversion to JPEG for browser compatibility
             if (ext === ".heic" || ext === ".heif") {
                 try {
@@ -161,45 +162,14 @@ function registerAttachmentProtocol() {
                 }
                 catch (conversionError) {
                     console.error("HEIC conversion failed:", conversionError);
-                    // Return error response for HEIC since browsers can't display it
                     return new Response("HEIC conversion failed", { status: 500 });
                 }
             }
-            // Check for Range header (needed for video/audio streaming)
-            const rangeHeader = request.headers.get("Range");
-            if (rangeHeader) {
-                const range = parseRangeHeader(rangeHeader, fileSize);
-                if (!range) {
-                    return new Response("Range Not Satisfiable", {
-                        status: 416,
-                        headers: { "Content-Range": `bytes */${fileSize}` },
-                    });
-                }
-                const { start, end } = range;
-                const chunkSize = end - start + 1;
-                // Use streaming for efficient large file handling
-                const nodeStream = fs.createReadStream(resolvedPath, { start, end });
-                const webStream = stream_1.Readable.toWeb(nodeStream);
-                return new Response(webStream, {
-                    status: 206,
-                    headers: {
-                        "Content-Type": mimeType,
-                        "Content-Length": String(chunkSize),
-                        "Content-Range": `bytes ${start}-${end}/${fileSize}`,
-                        "Accept-Ranges": "bytes",
-                    },
-                });
-            }
-            // No range header - stream full file
-            const nodeStream = fs.createReadStream(resolvedPath);
-            const webStream = stream_1.Readable.toWeb(nodeStream);
-            return new Response(webStream, {
-                headers: {
-                    "Content-Type": mimeType,
-                    "Content-Length": String(fileSize),
-                    "Accept-Ranges": "bytes",
-                },
-            });
+            // Use net.fetch for all files - it handles range requests automatically
+            // With standard: true + stream: true, this should work for video/audio
+            const fileUrl = (0, url_1.pathToFileURL)(resolvedPath).toString();
+            console.log("[Protocol] Fetching file URL:", fileUrl);
+            return electron_1.net.fetch(fileUrl);
         }
         catch (error) {
             console.error("Protocol handler error:", error);
@@ -343,8 +313,10 @@ function registerIpcHandlers() {
         try {
             // Check if file exists
             await fs.promises.access(fullPath, fs.constants.R_OK);
-            // Return attachment:// URL for renderer (works in both dev and production)
-            return `attachment://${relativePath}`;
+            // Return attachment:// URL for renderer
+            // Use "file/" prefix to prevent browser from normalizing numeric paths as IP addresses
+            // (e.g., "42/..." would become "0.0.0.42/..." without a prefix)
+            return `attachment://file/${relativePath}`;
         }
         catch {
             // File doesn't exist or isn't readable

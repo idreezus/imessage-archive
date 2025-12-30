@@ -68,6 +68,18 @@ export const VideoAttachment = memo(function VideoAttachment({
         src={videoUrl}
         className="w-full h-full object-cover"
         preload="metadata"
+        onError={(e) => {
+          const video = e.currentTarget;
+          console.error('[VideoAttachment] Video error:', {
+            error: video.error,
+            code: video.error?.code,
+            message: video.error?.message,
+            src: video.src,
+            networkState: video.networkState,
+            readyState: video.readyState,
+          });
+        }}
+        onLoadedMetadata={() => console.log('[VideoAttachment] Metadata loaded:', videoUrl)}
       />
       <div className="absolute inset-0 flex items-center justify-center bg-black/30">
         <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center">

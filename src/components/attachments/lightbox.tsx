@@ -276,6 +276,18 @@ export const Lightbox = memo(function Lightbox({
               'max-w-full',
               hasMultiple ? 'max-h-[calc(90vh-6rem)]' : 'max-h-[90vh]'
             )}
+            onError={(e) => {
+              const video = e.currentTarget;
+              console.error('[Lightbox] Video error:', {
+                error: video.error,
+                code: video.error?.code,
+                message: video.error?.message,
+                src: video.src,
+                networkState: video.networkState,
+                readyState: video.readyState,
+              });
+            }}
+            onLoadedMetadata={() => console.log('[Lightbox] Video metadata loaded:', mediaUrl)}
           />
         )}
 
