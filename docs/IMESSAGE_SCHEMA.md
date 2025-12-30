@@ -1,5 +1,7 @@
 # iMessage Database Schema
 
+> **Note**: This documentation is INCOMPLETE, AI-GENERATED, and may contain inaccuracies – please verify details independently before relying on them.
+
 Technical reference for macOS's iMessage SQLite database.
 
 ## Overview
@@ -16,15 +18,17 @@ Apple stores all iMessage and SMS data in a SQLite database. The schema uses int
 
 Contacts—anyone you've messaged.
 
-| Column | Type | Description |
-|--------|------|-------------|
-| ROWID | INTEGER | Primary key |
-| id | TEXT | Phone number (`+15551234567`) or email |
-| service | TEXT | `iMessage` or `SMS` |
-| uncanonicalized_id | TEXT | Original format before normalization |
-| person_centric_id | TEXT | Cross-device identifier (UUID) |
+| Column             | Type    | Description                            |
+| ------------------ | ------- | -------------------------------------- |
+| ROWID              | INTEGER | Primary key                            |
+| id                 | TEXT    | Phone number (`+15551234567`) or email |
+| service            | TEXT    | `iMessage`, `SMS`, or `RCS`            |
+| country            | TEXT    | Country code                           |
+| uncanonicalized_id | TEXT    | Original format before normalization   |
+| person_centric_id  | TEXT    | Cross-device identifier (UUID)         |
 
 **Notes**:
+
 - Phone numbers include country code with `+` prefix
 - Same contact may have multiple rows (phone + email, or iMessage + SMS)
 
@@ -34,16 +38,19 @@ Contacts—anyone you've messaged.
 
 Conversations—individual DMs or group threads.
 
-| Column | Type | Description |
-|--------|------|-------------|
-| ROWID | INTEGER | Primary key |
-| guid | TEXT | Unique identifier (`iMessage;+;chat123456`) |
-| chat_identifier | TEXT | Primary ID (phone, email, or group hash) |
-| display_name | TEXT | User-set name for group chats (NULL for DMs) |
-| style | INTEGER | Chat type (see below) |
-| state | INTEGER | Chat state |
-| account_id | TEXT | Account GUID |
-| last_read_message_timestamp | INTEGER | Apple timestamp |
+| Column                      | Type    | Description                                  |
+| --------------------------- | ------- | -------------------------------------------- |
+| ROWID                       | INTEGER | Primary key                                  |
+| guid                        | TEXT    | Unique identifier (`iMessage;+;chat123456`)  |
+| chat_identifier             | TEXT    | Primary ID (phone, email, or group hash)     |
+| display_name                | TEXT    | User-set name for group chats (NULL for DMs) |
+| style                       | INTEGER | Chat type (see below)                        |
+| state                       | INTEGER | Chat state                                   |
+| account_id                  | TEXT    | Account GUID                                 |
+| service_name                | TEXT    | Service (`iMessage`, `SMS`, `RCS`)           |
+| room_name                   | TEXT    | Internal room identifier                     |
+| last_read_message_timestamp | INTEGER | Apple timestamp                              |
+| is_archived                 | INTEGER | 1 = archived conversation                    |
 
 **Style values**:
 | Value | Meaning |
@@ -57,31 +64,38 @@ Conversations—individual DMs or group threads.
 
 Individual messages.
 
-| Column | Type | Description |
-|--------|------|-------------|
-| ROWID | INTEGER | Primary key |
-| guid | TEXT | Unique identifier |
-| text | TEXT | Message content (NULL if attachment-only) |
-| handle_id | INTEGER | FK to `handle.ROWID` (NULL if `is_from_me`) |
-| service | TEXT | `iMessage` or `SMS` |
-| date | INTEGER | Sent timestamp (Apple format) |
-| date_read | INTEGER | Read timestamp |
-| date_delivered | INTEGER | Delivered timestamp |
-| is_from_me | INTEGER | 1 = sent, 0 = received |
-| is_read | INTEGER | 1 = read, 0 = unread |
-| is_delivered | INTEGER | 1 = delivered |
-| is_sent | INTEGER | 1 = sent successfully |
-| cache_has_attachments | INTEGER | 1 = has media |
-| associated_message_guid | TEXT | Parent message (for reactions/replies) |
-| associated_message_type | INTEGER | Reaction type (see below) |
-| thread_originator_guid | TEXT | Thread root message |
-| thread_originator_part | TEXT | Thread position |
-| attributedBody | BLOB | Rich text (mentions, formatting) |
+| Column                   | Type    | Description                                                         |
+| ------------------------ | ------- | ------------------------------------------------------------------- |
+| ROWID                    | INTEGER | Primary key                                                         |
+| guid                     | TEXT    | Unique identifier                                                   |
+| text                     | TEXT    | Plain text content (may be NULL—see attributedBody)                 |
+| attributedBody           | BLOB    | Rich text as serialized NSAttributedString (see below)              |
+| handle_id                | INTEGER | FK to `handle.ROWID` (NULL if `is_from_me`)                         |
+| service                  | TEXT    | `iMessage`, `SMS`, or `RCS`                                         |
+| date                     | INTEGER | Sent timestamp (Apple format)                                       |
+| date_read                | INTEGER | Read timestamp                                                      |
+| date_delivered           | INTEGER | Delivered timestamp                                                 |
+| date_edited              | INTEGER | Edit timestamp (iOS 16+)                                            |
+| date_retracted           | INTEGER | Unsend timestamp (iOS 16+)                                          |
+| is_from_me               | INTEGER | 1 = sent, 0 = received                                              |
+| is_read                  | INTEGER | 1 = read, 0 = unread                                                |
+| is_delivered             | INTEGER | 1 = delivered                                                       |
+| is_sent                  | INTEGER | 1 = sent successfully                                               |
+| is_empty                 | INTEGER | 1 = empty message                                                   |
+| cache_has_attachments    | INTEGER | 1 = has media                                                       |
+| associated_message_guid  | TEXT    | Parent message (for reactions/replies)                              |
+| associated_message_type  | INTEGER | Reaction type (see below)                                           |
+| associated_message_emoji | TEXT    | Custom emoji for reaction (iOS 17+)                                 |
+| thread_originator_guid   | TEXT    | Thread root message                                                 |
+| thread_originator_part   | TEXT    | Thread position                                                     |
+| reply_to_guid            | TEXT    | Direct reply target                                                 |
+| balloon_bundle_id        | TEXT    | App extension identifier (for rich messages)                        |
+| expressive_send_style_id | TEXT    | Message effect (e.g., `com.apple.messages.effect.CKConfettiEffect`) |
 
 **Associated message types** (reactions):
 | Value | Meaning |
 |-------|---------|
-| 0 | Normal message |
+| 0 / NULL | Normal message |
 | 2000 | Love |
 | 2001 | Like (thumbs up) |
 | 2002 | Dislike (thumbs down) |
@@ -97,16 +111,46 @@ Individual messages.
 
 ---
 
+### `attachment`
+
+Media files attached to messages.
+
+| Column          | Type    | Description                                                    |
+| --------------- | ------- | -------------------------------------------------------------- |
+| ROWID           | INTEGER | Primary key                                                    |
+| guid            | TEXT    | Unique identifier                                              |
+| filename        | TEXT    | Full path to file (often `~/Library/Messages/Attachments/...`) |
+| mime_type       | TEXT    | MIME type (e.g., `image/jpeg`, `video/quicktime`)              |
+| uti             | TEXT    | Uniform Type Identifier (e.g., `public.jpeg`)                  |
+| transfer_name   | TEXT    | Original filename                                              |
+| total_bytes     | INTEGER | File size in bytes                                             |
+| created_date    | INTEGER | Apple timestamp                                                |
+| is_outgoing     | INTEGER | 1 = sent, 0 = received                                         |
+| is_sticker      | INTEGER | 1 = sticker attachment                                         |
+| hide_attachment | INTEGER | 1 = hidden/deleted                                             |
+| transfer_state  | INTEGER | Download state (0 = complete)                                  |
+
+**Common UTIs**:
+| UTI | Description |
+|-----|-------------|
+| `public.jpeg`, `public.png`, `public.heic` | Images |
+| `public.movie`, `com.apple.quicktime-movie` | Videos |
+| `com.compuserve.gif` | GIFs |
+| `public.audio`, `com.apple.coreaudio-format` | Audio files |
+| `com.apple.m4a-audio` | Voice memos |
+
+---
+
 ## Join Tables
 
 ### `chat_message_join`
 
 Links messages to conversations (many-to-many).
 
-| Column | Type | Description |
-|--------|------|-------------|
-| chat_id | INTEGER | FK to `chat.ROWID` |
-| message_id | INTEGER | FK to `message.ROWID` |
+| Column       | Type    | Description                        |
+| ------------ | ------- | ---------------------------------- |
+| chat_id      | INTEGER | FK to `chat.ROWID`                 |
+| message_id   | INTEGER | FK to `message.ROWID`              |
 | message_date | INTEGER | Denormalized timestamp for sorting |
 
 ---
@@ -115,10 +159,93 @@ Links messages to conversations (many-to-many).
 
 Links participants to conversations.
 
-| Column | Type | Description |
-|--------|------|-------------|
-| chat_id | INTEGER | FK to `chat.ROWID` |
+| Column    | Type    | Description          |
+| --------- | ------- | -------------------- |
+| chat_id   | INTEGER | FK to `chat.ROWID`   |
 | handle_id | INTEGER | FK to `handle.ROWID` |
+
+---
+
+### `message_attachment_join`
+
+Links attachments to messages.
+
+| Column        | Type    | Description              |
+| ------------- | ------- | ------------------------ |
+| message_id    | INTEGER | FK to `message.ROWID`    |
+| attachment_id | INTEGER | FK to `attachment.ROWID` |
+
+---
+
+## The `attributedBody` BLOB
+
+Starting with iOS 14/macOS Big Sur, Apple stores message content primarily in the `attributedBody` column as a serialized `NSAttributedString`, rather than the plain `text` column. This is especially common for:
+
+- Messages with mentions (@name)
+- Messages with rich formatting
+- Messages sent from newer iOS/macOS versions
+- Messages with inline attachments
+
+**Important**: The `text` column may be NULL or empty even for regular text messages. Always check `attributedBody` as a fallback.
+
+### Binary Format
+
+The blob is an NSKeyedArchiver-serialized `NSMutableAttributedString`. The text content can be extracted by:
+
+1. Finding the `NSString` marker in the binary data
+2. Locating the `0x2B` byte (ASCII `+`) which indicates a non-empty string
+3. Reading the length encoding:
+   - If next byte < `0x80`: single-byte length
+   - If next byte = `0x81`: next 2 bytes are little-endian length
+   - If next byte = `0x82`: next 3 bytes are little-endian length
+4. Reading that many bytes as UTF-8 text
+
+### Parsing Example (TypeScript)
+
+```typescript
+function parseAttributedBody(blob: Buffer): string | null {
+  const nsStringMarker = Buffer.from('NSString');
+  const nsIdx = blob.indexOf(nsStringMarker);
+  if (nsIdx === -1) return null;
+
+  const afterNs = blob.subarray(nsIdx + 9); // Skip "NSString" + null
+
+  // Find 0x2B marker within first 10 bytes
+  let markerPos = -1;
+  for (let i = 0; i < Math.min(10, afterNs.length); i++) {
+    if (afterNs[i] === 0x2b) {
+      markerPos = i;
+      break;
+    }
+  }
+  if (markerPos === -1) return null;
+
+  // Read length
+  const lenByte = afterNs[markerPos + 1];
+  let textLength: number;
+  let textStart: number;
+
+  if (lenByte < 0x80) {
+    textLength = lenByte;
+    textStart = markerPos + 2;
+  } else if (lenByte === 0x81) {
+    textLength = afterNs[markerPos + 2] | (afterNs[markerPos + 3] << 8);
+    textStart = markerPos + 4;
+  } else {
+    return null;
+  }
+
+  return afterNs.subarray(textStart, textStart + textLength).toString('utf-8');
+}
+```
+
+### Object Replacement Characters
+
+The extracted text may contain `U+FFFC` (object replacement character) where inline attachments appear. Strip these for display:
+
+```typescript
+const displayText = parsedText.replace(/\ufffc/g, '').trim();
+```
 
 ---
 
@@ -171,12 +298,13 @@ GROUP BY c.ROWID
 ORDER BY last_message_date DESC;
 ```
 
-### Messages for a conversation
+### Messages for a conversation (with attributedBody fallback)
 
 ```sql
 SELECT
   m.ROWID,
   m.text,
+  m.attributedBody,
   m.date,
   m.is_from_me,
   m.service,
@@ -185,6 +313,7 @@ FROM message m
 JOIN chat_message_join cmj ON m.ROWID = cmj.message_id
 LEFT JOIN handle h ON m.handle_id = h.ROWID
 WHERE cmj.chat_id = ?
+  AND (m.associated_message_type IS NULL OR m.associated_message_type = 0)
 ORDER BY m.date DESC
 LIMIT 50;
 ```
@@ -196,6 +325,22 @@ SELECT h.id, h.service
 FROM handle h
 JOIN chat_handle_join chj ON h.ROWID = chj.handle_id
 WHERE chj.chat_id = ?;
+```
+
+### Attachments for messages
+
+```sql
+SELECT
+  a.ROWID,
+  a.filename,
+  a.mime_type,
+  a.uti,
+  a.transfer_name,
+  a.total_bytes,
+  a.is_sticker
+FROM attachment a
+JOIN message_attachment_join maj ON a.ROWID = maj.attachment_id
+WHERE maj.message_id IN (?, ?, ?);
 ```
 
 ---
@@ -217,37 +362,39 @@ Reactions are stored as separate messages with special `associated_message_type`
 
 ### Key Fields
 
-| Column | Type | Description |
-|--------|------|-------------|
-| associated_message_guid | TEXT | Target message in format `p:N/GUID` |
-| associated_message_type | INTEGER | Reaction type code (see below) |
-| associated_message_emoji | TEXT | Custom emoji (iOS 17+, NULL for standard) |
+| Column                   | Type    | Description                                      |
+| ------------------------ | ------- | ------------------------------------------------ |
+| associated_message_guid  | TEXT    | Target message in format `p:N/GUID` or `bp:GUID` |
+| associated_message_type  | INTEGER | Reaction type code (see below)                   |
+| associated_message_emoji | TEXT    | Custom emoji (iOS 17+, NULL for standard)        |
 
 ### GUID Format
 
 The `associated_message_guid` field uses format `p:N/GUID` where:
-- `p:` is a literal prefix
+
+- `p:` is a literal prefix (or `bp:` for some message types)
 - `N` is the message part index (usually `0`)
 - `GUID` is the target message's guid
 
 **Example**: `p:0/7B18EB94-1930-49CF-9E5C-C9BA39EEDF4F`
 
 To match reactions to messages, extract the GUID portion:
+
 ```sql
 SUBSTR(associated_message_guid, INSTR(associated_message_guid, '/') + 1)
 ```
 
 ### Reaction Type Codes
 
-| Value | Emoji | Meaning |
-|-------|-------|---------|
-| 2000 | ❤️ | Love |
-| 2001 | 👍 | Like |
-| 2002 | 👎 | Dislike |
-| 2003 | 😂 | Laugh |
-| 2004 | ‼️ | Emphasize |
-| 2005 | ❓ | Question |
-| 3000-3005 | — | Remove corresponding reaction |
+| Value     | Emoji | Meaning                       |
+| --------- | ----- | ----------------------------- |
+| 2000      | ❤️    | Love                          |
+| 2001      | 👍    | Like                          |
+| 2002      | 👎    | Dislike                       |
+| 2003      | 😂    | Laugh                         |
+| 2004      | ‼️    | Emphasize                     |
+| 2005      | ❓    | Question                      |
+| 3000-3005 | —     | Remove corresponding reaction |
 
 ### Query Example
 
@@ -258,6 +405,7 @@ SELECT
   r.associated_message_type as reaction_type,
   r.associated_message_emoji as custom_emoji,
   r.is_from_me,
+  r.date,
   h.id as reactor
 FROM message r
 LEFT JOIN handle h ON r.handle_id = h.ROWID
@@ -270,9 +418,21 @@ ORDER BY r.date ASC;
 ### Handling Removals
 
 When a user removes a reaction, a new message is created with type `3000-3005`. To get the final state:
+
 1. Fetch all reactions (2000+) for target messages
 2. Track additions and removals by reactor + reaction type
 3. Filter out reactions that have a later removal
+
+---
+
+## Attachment Paths
+
+Attachment file paths in the `filename` column use `~` for the home directory. Common locations:
+
+- `~/Library/Messages/Attachments/` — received attachments
+- Paths may reference iCloud (`~/Library/Messages/Attachments/.../filename.icloud`)
+
+For iCloud placeholder files (`.icloud` extension), the actual file may need to be downloaded first.
 
 ---
 
@@ -280,9 +440,9 @@ When a user removes a reaction, a new message is created with type `3000-3005`. 
 
 <!-- TODO: Document these tables as features are implemented -->
 
-- `attachment` - Media files (images, videos, audio)
-- `message_attachment_join` - Links attachments to messages
 - `chat_recoverable_message_join` - Recently deleted messages
+- `recoverable_message_part` - Deleted message content
 - Sticker packs and sticker messages
-- Link previews
-- Message effects (bubble/screen effects)
+- Link previews (`balloon_bundle_id = 'com.apple.messages.URLBalloonProvider'`)
+- Message effects (`expressive_send_style_id`)
+- Edit history for edited messages

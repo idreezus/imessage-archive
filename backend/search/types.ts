@@ -68,6 +68,7 @@ export type IndexMessageRow = {
   messageRowid: number;
   chatRowid: number;
   text: string | null;
+  attributedBody: Buffer | null;
   senderHandle: string | null;
   date: number;
   isFromMe: number;

@@ -16,7 +16,9 @@
       "Bash(# Find IMG_7459.jpeg anywhere in attachments find /Users/idreesisse/Clients/Idreezus/Projects/mymessage/data/attachments -name \"\"IMG_7459.jpeg\"\")",
       "Bash(# Check for .caf audio files \\(voice memos\\) - do they exist locally? find /Users/idreesisse/Clients/Idreezus/Projects/mymessage/data/attachments -name \"\"*.caf\"\")",
       "Bash(ffprobe:*)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(python3:*)",
+      "Bash(npm run build:app:*)"
     ]
   }
 }

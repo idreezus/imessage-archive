@@ -10,6 +10,18 @@ import {
   IndexBuildResult,
 } from "./types";
 import { normalizePhone, escapeFtsQuery, createSnippet } from "./snippets";
+import { parseAttributedBody } from "../messages/attributedBody";
+
+// Extract text from message row, falling back to attributedBody if text is empty
+function getMessageText(row: IndexMessageRow): string | null {
+  if (row.text && row.text.trim().length > 0) {
+    return row.text;
+  }
+  if (row.attributedBody) {
+    return parseAttributedBody(row.attributedBody);
+  }
+  return null;
+}
 
 export class SearchIndexService {
   private db: Database.Database;
@@ -90,6 +102,7 @@ export class SearchIndexService {
           m.ROWID as messageRowid,
           c.ROWID as chatRowid,
           m.text,
+          m.attributedBody,
           h.id as senderHandle,
           m.date,
           m.is_from_me as isFromMe,
@@ -108,12 +121,15 @@ export class SearchIndexService {
       // Build index in a transaction for performance
       const insertTransaction = this.db.transaction(() => {
         for (const row of messageQuery.iterate() as Iterable<IndexMessageRow>) {
+          // Get text from either text column or attributedBody
+          const messageText = getMessageText(row);
+
           // Only index messages with text content
-          if (row.text && row.text.trim()) {
+          if (messageText && messageText.trim()) {
             insertMessage.run(
               row.messageRowid,
               row.chatRowid,
-              row.text,
+              messageText,
               row.senderHandle,
               appleToJsTimestamp(row.date),
               row.isFromMe,

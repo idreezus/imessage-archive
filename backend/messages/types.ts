@@ -12,6 +12,7 @@ export type MessageRow = {
   rowid: number;
   guid: string;
   text: string | null;
+  attributedBody: Buffer | null;
   handleId: number | null;
   date: number;
   isFromMe: number;

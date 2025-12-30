@@ -3,6 +3,20 @@ import { appleToJsTimestamp, jsToAppleTimestamp } from "../database/timestamps";
 import { getReactionsForMessages, processReactions } from "./reactions";
 import { getAttachmentsForMessages } from "../attachments/queries";
 import { Message, MessageRow, MessagesOptions } from "./types";
+import { parseAttributedBody } from "./attributedBody";
+
+// Extract text from message row, falling back to attributedBody if text is empty
+function getMessageText(row: MessageRow): string | null {
+  // Use plain text if available
+  if (row.text && row.text.trim().length > 0) {
+    return row.text;
+  }
+  // Fall back to parsing attributedBody
+  if (row.attributedBody) {
+    return parseAttributedBody(row.attributedBody);
+  }
+  return null;
+}
 
 // Fetch messages around a specific date for scroll-to navigation.
 export function getMessagesAroundDate(
@@ -19,6 +33,7 @@ export function getMessagesAroundDate(
       m.ROWID as rowid,
       m.guid,
       m.text,
+      m.attributedBody,
       m.handle_id as handleId,
       m.date,
       m.is_from_me as isFromMe,
@@ -41,6 +56,7 @@ export function getMessagesAroundDate(
       m.ROWID as rowid,
       m.guid,
       m.text,
+      m.attributedBody,
       m.handle_id as handleId,
       m.date,
       m.is_from_me as isFromMe,
@@ -80,7 +96,7 @@ export function getMessagesAroundDate(
   const messages: Message[] = allRows.map((row) => ({
     rowid: row.rowid,
     guid: row.guid,
-    text: row.text,
+    text: getMessageText(row),
     handleId: row.handleId,
     date: appleToJsTimestamp(row.date),
     isFromMe: row.isFromMe === 1,
@@ -123,6 +139,7 @@ export function getMessages(options: MessagesOptions): {
       m.ROWID as rowid,
       m.guid,
       m.text,
+      m.attributedBody,
       m.handle_id as handleId,
       m.date,
       m.is_from_me as isFromMe,
@@ -168,7 +185,7 @@ export function getMessages(options: MessagesOptions): {
   const messages: Message[] = messageRows.map((row) => ({
     rowid: row.rowid,
     guid: row.guid,
-    text: row.text,
+    text: getMessageText(row),
     handleId: row.handleId,
     date: appleToJsTimestamp(row.date),
     isFromMe: row.isFromMe === 1,
