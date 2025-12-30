@@ -95,7 +95,7 @@ Individual messages.
 **Associated message types** (reactions):
 | Value | Meaning |
 |-------|---------|
-| 0 / NULL | Normal message |
+| 0 | Normal message |
 | 2000 | Love |
 | 2001 | Like (thumbs up) |
 | 2002 | Dislike (thumbs down) |
@@ -108,6 +108,9 @@ Individual messages.
 | 3003 | Remove laugh |
 | 3004 | Remove emphasis |
 | 3005 | Remove question |
+
+> **Note**: In practice, `associated_message_type` is never NULL—all regular messages have value 0.
+> Using `= 0` instead of `IS NULL OR = 0` improves query performance.
 
 ---
 
@@ -301,22 +304,29 @@ ORDER BY last_message_date DESC;
 ### Messages for a conversation (with attributedBody fallback)
 
 ```sql
+-- Use INDEXED BY to force the covering index for optimal performance
+-- Note: associated_message_type is never NULL in practice, so = 0 is sufficient
 SELECT
   m.ROWID,
   m.text,
   m.attributedBody,
-  m.date,
+  cmj.message_date as date,
   m.is_from_me,
   m.service,
   h.id as sender
-FROM message m
-JOIN chat_message_join cmj ON m.ROWID = cmj.message_id
+FROM chat_message_join cmj
+  INDEXED BY chat_message_join_idx_message_date_id_chat_id
+JOIN message m ON m.ROWID = cmj.message_id
 LEFT JOIN handle h ON m.handle_id = h.ROWID
 WHERE cmj.chat_id = ?
-  AND (m.associated_message_type IS NULL OR m.associated_message_type = 0)
-ORDER BY m.date DESC
+  AND m.associated_message_type = 0
+ORDER BY cmj.message_date DESC
 LIMIT 50;
 ```
+
+> **Performance Note**: The `INDEXED BY` hint forces SQLite to use the covering index
+> `(chat_id, message_date, message_id)` which eliminates a costly TEMP B-TREE sort.
+> Without this hint, query times can vary from 44ms to 1,500ms+ depending on chat size.
 
 ### Participants in a conversation
 
@@ -399,9 +409,10 @@ SUBSTR(associated_message_guid, INSTR(associated_message_guid, '/') + 1)
 ### Query Example
 
 ```sql
--- Fetch reactions for specific messages
+-- Fetch reactions for specific messages using the associated_message_guid index
+-- Build prefixed patterns for each target GUID: p:0/, p:1/, p:2/, p:3/, bp:
 SELECT
-  SUBSTR(r.associated_message_guid, INSTR(r.associated_message_guid, '/') + 1) as target_guid,
+  r.associated_message_guid,
   r.associated_message_type as reaction_type,
   r.associated_message_emoji as custom_emoji,
   r.is_from_me,
@@ -409,11 +420,17 @@ SELECT
   h.id as reactor
 FROM message r
 LEFT JOIN handle h ON r.handle_id = h.ROWID
-WHERE SUBSTR(r.associated_message_guid, INSTR(r.associated_message_guid, '/') + 1)
-      IN ('GUID1', 'GUID2')
+WHERE r.associated_message_guid IN (
+    'p:0/GUID1', 'p:1/GUID1', 'p:2/GUID1', 'p:3/GUID1', 'bp:GUID1',
+    'p:0/GUID2', 'p:1/GUID2', 'p:2/GUID2', 'p:3/GUID2', 'bp:GUID2'
+  )
   AND r.associated_message_type >= 2000
 ORDER BY r.date ASC;
 ```
+
+> **Performance Note**: Using prefixed GUID patterns with IN clause leverages the
+> `message_idx_associated_message2` index for O(log n) lookups per pattern.
+> Avoid using SUBSTR() in WHERE clauses as it prevents index usage and causes full table scans.
 
 ### Handling Removals
 

@@ -2,25 +2,46 @@ import { getDatabaseInstance } from "../database/connection";
 import { appleToJsTimestamp } from "../database/timestamps";
 import { ReactionRow, Reaction } from "./types";
 
-// Extract the base GUID from an associated_message_guid (strips "p:N/" prefix)
+// Known prefixes for associated_message_guid (p:N/ for parts, bp: for bubble)
+const GUID_PREFIXES = ["p:0/", "p:1/", "p:2/", "p:3/", "bp:"];
+
+// Extract the base GUID from an associated_message_guid (strips "p:N/" or "bp:" prefix)
 function extractTargetGuid(associatedGuid: string): string {
   const slashIndex = associatedGuid.indexOf("/");
-  return slashIndex >= 0 ? associatedGuid.slice(slashIndex + 1) : associatedGuid;
+  if (slashIndex >= 0) {
+    return associatedGuid.slice(slashIndex + 1);
+  }
+  // Handle bp: prefix (no slash)
+  if (associatedGuid.startsWith("bp:")) {
+    return associatedGuid.slice(3);
+  }
+  return associatedGuid;
 }
 
 // Fetch reactions for messages in a specific chat, filtered to the given GUIDs.
-// This approach uses the chat_id index for efficient filtering, then filters by GUID in JS.
-// Note: associated_message_guid has format "p:N/GUID" where N is the part index
+// Uses the message_idx_associated_message2 index for efficient O(log n) lookups
+// instead of scanning all reactions in the chat.
 export function getReactionsForMessages(
-  chatId: number,
+  _chatId: number, // No longer needed but kept for API compatibility
   messageGuids: string[]
 ): ReactionRow[] {
   if (messageGuids.length === 0) return [];
 
   const db = getDatabaseInstance();
 
-  // Query all reactions in this chat using the chat_id index
-  // SUBSTR/INSTR in SELECT is fine - it's only in WHERE that it prevents index usage
+  // Build all possible prefixed GUIDs to match against the index
+  // Each message GUID can have reactions with prefixes: p:0/, p:1/, p:2/, p:3/, bp:
+  const prefixedGuids: string[] = [];
+  for (const guid of messageGuids) {
+    for (const prefix of GUID_PREFIXES) {
+      prefixedGuids.push(prefix + guid);
+    }
+  }
+
+  // Use IN clause with prefixed GUIDs to leverage the associated_message_guid index
+  // This is O(n log m) where n = number of prefixed patterns, m = total reactions
+  // vs O(m) for scanning all reactions in the chat
+  const placeholders = prefixedGuids.map(() => "?").join(",");
   const stmt = db.prepare(`
     SELECT
       r.ROWID as rowid,
@@ -33,39 +54,28 @@ export function getReactionsForMessages(
       h.id as reactorIdentifier,
       h.service as reactorService
     FROM message r
-    JOIN chat_message_join cmj ON r.ROWID = cmj.message_id
     LEFT JOIN handle h ON r.handle_id = h.ROWID
-    WHERE cmj.chat_id = ?
+    WHERE r.associated_message_guid IN (${placeholders})
       AND r.associated_message_type >= 2000
     ORDER BY r.date ASC
   `);
 
-  const allChatReactions = stmt.all(chatId) as (Omit<ReactionRow, "targetMessageGuid"> & {
+  const rows = stmt.all(...prefixedGuids) as (Omit<ReactionRow, "targetMessageGuid"> & {
     rawTargetGuid: string;
   })[];
 
-  // Filter to only reactions targeting our messages using O(1) Set lookups
-  const targetGuidSet = new Set(messageGuids);
-  const filteredReactions: ReactionRow[] = [];
-
-  for (const row of allChatReactions) {
-    const targetGuid = extractTargetGuid(row.rawTargetGuid);
-    if (targetGuidSet.has(targetGuid)) {
-      filteredReactions.push({
-        rowid: row.rowid,
-        guid: row.guid,
-        targetMessageGuid: targetGuid,
-        reactionType: row.reactionType,
-        customEmoji: row.customEmoji,
-        isFromMe: row.isFromMe,
-        date: row.date,
-        reactorIdentifier: row.reactorIdentifier,
-        reactorService: row.reactorService,
-      });
-    }
-  }
-
-  return filteredReactions;
+  // Transform rows, extracting the target GUID from the prefixed format
+  return rows.map((row) => ({
+    rowid: row.rowid,
+    guid: row.guid,
+    targetMessageGuid: extractTargetGuid(row.rawTargetGuid),
+    reactionType: row.reactionType,
+    customEmoji: row.customEmoji,
+    isFromMe: row.isFromMe,
+    date: row.date,
+    reactorIdentifier: row.reactorIdentifier,
+    reactorService: row.reactorService,
+  }));
 }
 
 // Process raw reactions: filter removals, group by target message.

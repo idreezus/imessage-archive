@@ -18,7 +18,9 @@
       "Bash(ffprobe:*)",
       "WebFetch(domain:github.com)",
       "Bash(python3:*)",
-      "Bash(xargs ls:*)"
+      "Bash(xargs ls:*)",
+      "Bash(ls:*)",
+      "Bash(time sqlite3:*)"
     ]
   }
 }

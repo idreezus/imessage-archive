@@ -22,17 +22,19 @@ MyMessage provides an open-source alternative for viewing and navigating your me
 - **Message Thread View**: Read full message history with proper timestamps
 - **iMessage-style UI**: Blue bubbles for iMessage, green for SMS
 - **Group Chat Support**: View group conversations with participant names
+- **Reactions (Tapbacks)**: View reactions on messages with proper attribution
+- **Attachments**: View images, videos, and other media inline
+- **Full-Text Search**: Search across all your messages with highlighted snippets
 - **Infinite Scroll**: Lazy-load older messages and conversations
 - **Native macOS Look**: Hidden title bar with traffic light buttons
+- **Fast Performance**: Desktop-quality speed (~15ms conversation opens)
 
 ### Out of Scope (Future)
 
-- Search functionality
-- Attachments and media viewing
-- Reactions display
 - Import wizard / database picker
 - Message deduplication
 - Contact name resolution (currently shows phone/email)
+- Export functionality
 
 ## Tech Stack
 

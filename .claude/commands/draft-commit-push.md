@@ -12,7 +12,7 @@ Draft, review, and push git commit with approval
 2. **Draft commit message**
    - Format as conventional commit (type: description, body if needed)
    - Present the drafted message to user
-   - NOTE: Do not say Claude author credits
+   - NEVER say "Generated with Claude Code", "Co-Authored-By Claude", or any other sentences signaling Claude authorship of a commit message.
 3. **STOP - Wait for user approval**
    - **DO NOT PROCEED without explicit user confirmation**
    - Reply **YES** to stage, commit, and push with this message

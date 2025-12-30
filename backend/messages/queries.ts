@@ -29,6 +29,7 @@ export function getMessagesAroundDate(
   const appleTargetDate = jsToAppleTimestamp(targetDate);
 
   // Get messages before target (older)
+  // Use INDEXED BY to force the covering index for optimal performance
   const beforeQuery = `
     SELECT
       m.ROWID as rowid,
@@ -36,22 +37,24 @@ export function getMessagesAroundDate(
       m.text,
       m.attributedBody,
       m.handle_id as handleId,
-      m.date,
+      cmj.message_date as date,
       m.is_from_me as isFromMe,
       m.service,
       h.id as handleIdentifier,
       h.service as handleService
-    FROM message m
-    JOIN chat_message_join cmj ON m.ROWID = cmj.message_id
+    FROM chat_message_join cmj
+      INDEXED BY chat_message_join_idx_message_date_id_chat_id
+    JOIN message m ON m.ROWID = cmj.message_id
     LEFT JOIN handle h ON m.handle_id = h.ROWID
     WHERE cmj.chat_id = ?
-      AND (m.associated_message_type IS NULL OR m.associated_message_type = 0)
-      AND m.date <= ?
-    ORDER BY m.date DESC
+      AND m.associated_message_type = 0
+      AND cmj.message_date <= ?
+    ORDER BY cmj.message_date DESC
     LIMIT ?
   `;
 
   // Get messages after target (newer)
+  // Use INDEXED BY to force the covering index for optimal performance
   const afterQuery = `
     SELECT
       m.ROWID as rowid,
@@ -59,18 +62,19 @@ export function getMessagesAroundDate(
       m.text,
       m.attributedBody,
       m.handle_id as handleId,
-      m.date,
+      cmj.message_date as date,
       m.is_from_me as isFromMe,
       m.service,
       h.id as handleIdentifier,
       h.service as handleService
-    FROM message m
-    JOIN chat_message_join cmj ON m.ROWID = cmj.message_id
+    FROM chat_message_join cmj
+      INDEXED BY chat_message_join_idx_message_date_id_chat_id
+    JOIN message m ON m.ROWID = cmj.message_id
     LEFT JOIN handle h ON m.handle_id = h.ROWID
     WHERE cmj.chat_id = ?
-      AND (m.associated_message_type IS NULL OR m.associated_message_type = 0)
-      AND m.date > ?
-    ORDER BY m.date ASC
+      AND m.associated_message_type = 0
+      AND cmj.message_date > ?
+    ORDER BY cmj.message_date ASC
     LIMIT ?
   `;
 
@@ -135,6 +139,9 @@ export function getMessages(options: MessagesOptions): {
   const db = getDatabaseInstance();
   const { chatId, limit = 50, beforeDate } = options;
 
+  // Use INDEXED BY to force the covering index (chat_id, message_date, message_id)
+  // which eliminates the TEMP B-TREE sort. Without this hint, SQLite incorrectly
+  // chooses idx_cmj_chat which requires sorting all results before LIMIT.
   let query = `
     SELECT
       m.ROWID as rowid,
@@ -142,16 +149,17 @@ export function getMessages(options: MessagesOptions): {
       m.text,
       m.attributedBody,
       m.handle_id as handleId,
-      m.date,
+      cmj.message_date as date,
       m.is_from_me as isFromMe,
       m.service,
       h.id as handleIdentifier,
       h.service as handleService
-    FROM message m
-    JOIN chat_message_join cmj ON m.ROWID = cmj.message_id
+    FROM chat_message_join cmj
+      INDEXED BY chat_message_join_idx_message_date_id_chat_id
+    JOIN message m ON m.ROWID = cmj.message_id
     LEFT JOIN handle h ON m.handle_id = h.ROWID
     WHERE cmj.chat_id = ?
-      AND (m.associated_message_type IS NULL OR m.associated_message_type = 0)
+      AND m.associated_message_type = 0
   `;
 
   const params: (number | undefined)[] = [chatId];
@@ -159,12 +167,12 @@ export function getMessages(options: MessagesOptions): {
   // Add cursor filter for pagination
   if (beforeDate) {
     const appleDate = jsToAppleTimestamp(beforeDate);
-    query += ` AND m.date < ?`;
+    query += ` AND cmj.message_date < ?`;
     params.push(appleDate);
   }
 
   // Fetch one extra to determine if more messages exist
-  query += ` ORDER BY m.date DESC LIMIT ?`;
+  query += ` ORDER BY cmj.message_date DESC LIMIT ?`;
   params.push(limit + 1);
 
   const queryTimer = startTimer("db", "getMessages.query");
