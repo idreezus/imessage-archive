@@ -166,3 +166,28 @@ mark {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Gallery grid layout for VirtuosoGrid */
+.gallery-grid {
+  display: grid;
+  gap: 4px;
+  padding: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+}
+
+@media (min-width: 640px) {
+  .gallery-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .gallery-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  }
+}
+
+.gallery-grid-item {
+  aspect-ratio: 1;
+  position: relative;
+}

@@ -27,6 +27,40 @@ type SearchOptions = {
   offset?: number;
 };
 
+type AttachmentType =
+  | "image"
+  | "video"
+  | "audio"
+  | "voice-memo"
+  | "sticker"
+  | "document"
+  | "other";
+
+type GalleryQueryOptions = {
+  chatId?: number;
+  types?: AttachmentType[];
+  direction?: "all" | "sent" | "received";
+  dateFrom?: number;
+  dateTo?: number;
+  sortBy?: "date" | "size" | "type";
+  sortOrder?: "asc" | "desc";
+  limit?: number;
+  offset?: number;
+};
+
+type GalleryStatsOptions = {
+  chatId?: number;
+  types?: AttachmentType[];
+  direction?: "all" | "sent" | "received";
+  dateFrom?: number;
+  dateTo?: number;
+};
+
+type DownloadAttachmentOptions = {
+  localPath: string;
+  suggestedFilename: string;
+};
+
 // Electron API bridge exposed to renderer via window.electronAPI.
 const electronAPI = {
   // Fetch paginated list of conversations
@@ -64,6 +98,25 @@ const electronAPI = {
   // Get attachment file URL from relative path
   getAttachmentFileUrl: (relativePath: string) =>
     ipcRenderer.invoke("attachment:get-file-url", { relativePath }) as Promise<string | null>,
+
+  // Gallery API
+  getGalleryAttachments: (options: GalleryQueryOptions) =>
+    ipcRenderer.invoke("gallery:get-attachments", options),
+
+  getGalleryStats: (options: GalleryStatsOptions) =>
+    ipcRenderer.invoke("gallery:get-stats", options),
+
+  getAttachmentMetadata: (rowid: number) =>
+    ipcRenderer.invoke("gallery:get-attachment-metadata", { rowid }),
+
+  downloadAttachment: (options: DownloadAttachmentOptions) =>
+    ipcRenderer.invoke("gallery:download-attachment", options),
+
+  showInFinder: (localPath: string) =>
+    ipcRenderer.invoke("gallery:show-in-finder", { localPath }),
+
+  shareAttachment: (localPath: string) =>
+    ipcRenderer.invoke("gallery:share-attachment", { localPath }),
 };
 
 // Expose API to renderer process securely

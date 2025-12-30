@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { Images } from 'lucide-react';
 import {
   SidebarProvider,
   Sidebar,
@@ -6,6 +7,7 @@ import {
   SidebarHeader,
   SidebarInset,
 } from '@/components/ui/sidebar';
+import { Button } from '@/components/ui/button';
 import { ConversationList } from '@/components/conversation-list';
 import { MessageThread } from '@/components/messages/components/message-thread';
 import {
@@ -14,10 +16,15 @@ import {
   SearchResultsPanel,
   useSearchContext,
 } from '@/components/search';
+import {
+  GalleryProvider,
+  GalleryView,
+  useGalleryContext,
+} from '@/components/gallery';
 import type { Conversation } from '@/types';
 import type { SearchResultItem } from '@/types/search';
 
-// Inner layout component that uses the search context
+// Inner layout component that uses the search and gallery context
 function AppLayoutInner() {
   const [selectedConversation, setSelectedConversation] =
     useState<Conversation | null>(null);
@@ -26,6 +33,7 @@ function AppLayoutInner() {
   );
 
   const search = useSearchContext();
+  const gallery = useGalleryContext();
 
   // Handle clicking a search result
   const handleSearchResultClick = useCallback(
@@ -56,9 +64,17 @@ function AppLayoutInner() {
       {/* Left sidebar with conversation list - fixed position */}
       <Sidebar className="border-r">
         <SidebarHeader className="border-b px-4 py-3 space-y-3">
-          <h1 className="font-semibold text-lg pt-(--spacing-header)">
-            Messages
-          </h1>
+          <div className="flex items-center justify-between pt-(--spacing-header)">
+            <h1 className="font-semibold text-lg">Messages</h1>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => gallery.openGallery()}
+              aria-label="Open gallery"
+            >
+              <Images className="size-5" />
+            </Button>
+          </div>
           <SearchContainer />
         </SidebarHeader>
         <SidebarContent>
@@ -73,13 +89,20 @@ function AppLayoutInner() {
         </SidebarContent>
       </Sidebar>
 
-      {/* Right panel with message thread */}
+      {/* Right panel with message thread or gallery */}
       <SidebarInset>
-        <MessageThread
-          conversation={selectedConversation}
-          targetMessageRowid={targetMessageRowid}
-          onScrollComplete={handleMessageScrollComplete}
-        />
+        {gallery.isGalleryOpen ? (
+          <GalleryView />
+        ) : (
+          <MessageThread
+            conversation={selectedConversation}
+            targetMessageRowid={targetMessageRowid}
+            onScrollComplete={handleMessageScrollComplete}
+            onOpenGallery={(chatId, chatName) =>
+              gallery.openGallery(chatId, chatName)
+            }
+          />
+        )}
       </SidebarInset>
     </SidebarProvider>
   );
@@ -89,7 +112,9 @@ function AppLayoutInner() {
 export function AppLayout() {
   return (
     <SearchProvider>
-      <AppLayoutInner />
+      <GalleryProvider>
+        <AppLayoutInner />
+      </GalleryProvider>
     </SearchProvider>
   );
 }

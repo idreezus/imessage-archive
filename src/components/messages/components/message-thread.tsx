@@ -18,6 +18,7 @@ type MessageThreadProps = {
   conversation: Conversation | null;
   targetMessageRowid?: number | null;
   onScrollComplete?: () => void;
+  onOpenGallery?: (chatId: number, chatName: string) => void;
 };
 
 // Message thread panel displaying conversation messages with virtualized scrolling.
@@ -25,6 +26,7 @@ export function MessageThread({
   conversation,
   targetMessageRowid,
   onScrollComplete,
+  onOpenGallery,
 }: MessageThreadProps) {
   const { messages, isLoading, hasMore, loadMore, setMessages, loadedChatId } =
     useMessages({
@@ -200,7 +202,10 @@ export function MessageThread({
 
   return (
     <div className="flex flex-col h-full">
-      <ConversationHeader conversation={conversation} />
+      <ConversationHeader
+        conversation={conversation}
+        onOpenGallery={onOpenGallery}
+      />
 
       {/* Messages scroll area */}
       <div className="flex-1 overflow-hidden">

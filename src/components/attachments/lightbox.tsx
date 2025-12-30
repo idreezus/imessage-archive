@@ -2,12 +2,15 @@ import { memo, useState, useEffect, useCallback, useRef } from 'react';
 import { X, ChevronLeft, ChevronRight, Play } from 'lucide-react';
 import type { Attachment } from '@/types';
 import { cn } from '@/lib/utils';
+import { LightboxToolbar } from './lightbox-toolbar';
+import { AttachmentInfoSheet } from './attachment-info-sheet';
 
 type LightboxProps = {
   attachments: Attachment[];
   initialIndex: number;
   isOpen: boolean;
   onClose: () => void;
+  showToolbar?: boolean;
 };
 
 export const Lightbox = memo(function Lightbox({
@@ -15,6 +18,7 @@ export const Lightbox = memo(function Lightbox({
   initialIndex,
   isOpen,
   onClose,
+  showToolbar = false,
 }: LightboxProps) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
@@ -22,6 +26,7 @@ export const Lightbox = memo(function Lightbox({
   const [thumbnailUrls, setThumbnailUrls] = useState<Map<number, string>>(
     new Map()
   );
+  const [isInfoOpen, setIsInfoOpen] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const thumbnailRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
 
@@ -135,6 +140,7 @@ export const Lightbox = memo(function Lightbox({
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
+      setIsInfoOpen(false);
     }
     return () => {
       document.body.style.overflow = '';
@@ -288,6 +294,22 @@ export const Lightbox = memo(function Lightbox({
           </div>
         )}
       </div>
+
+      {/* Toolbar */}
+      {showToolbar && current && (
+        <LightboxToolbar
+          attachment={current}
+          onToggleInfo={() => setIsInfoOpen(!isInfoOpen)}
+          isInfoOpen={isInfoOpen}
+        />
+      )}
+
+      {/* Info Sheet */}
+      <AttachmentInfoSheet
+        attachment={current}
+        isOpen={isInfoOpen}
+        onClose={() => setIsInfoOpen(false)}
+      />
     </div>
   );
 });

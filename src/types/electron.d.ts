@@ -12,6 +12,15 @@ import type {
   IndexBuildResult,
   ChatFilterOption,
 } from './search';
+import type {
+  GalleryQueryOptions,
+  GalleryStatsOptions,
+  GalleryResponse,
+  GalleryStats,
+  DownloadAttachmentOptions,
+  DownloadResult,
+  AttachmentMetadata,
+} from './gallery';
 
 // Electron API exposed to renderer via preload script
 export type ElectronAPI = {
@@ -53,6 +62,14 @@ export type ElectronAPI = {
 
   // Attachment API
   getAttachmentFileUrl: (relativePath: string) => Promise<string | null>;
+
+  // Gallery API
+  getGalleryAttachments: (options: GalleryQueryOptions) => Promise<GalleryResponse>;
+  getGalleryStats: (options: GalleryStatsOptions) => Promise<GalleryStats>;
+  getAttachmentMetadata: (rowid: number) => Promise<AttachmentMetadata | null>;
+  downloadAttachment: (options: DownloadAttachmentOptions) => Promise<DownloadResult>;
+  showInFinder: (localPath: string) => Promise<{ success: boolean; error?: string }>;
+  shareAttachment: (localPath: string) => Promise<{ success: boolean; error?: string }>;
 };
 
 // Extend Window interface with electronAPI

@@ -26,6 +26,7 @@ import {
   registerSearchHandlers,
   initializeSearchService,
 } from "./search";
+import { registerGalleryHandlers } from "./gallery";
 import { startPhase, endStartup } from "./perf";
 
 let mainWindow: BrowserWindow | null = null;
@@ -130,6 +131,7 @@ function registerAllHandlers(): void {
   registerMessageHandlers();
   registerSearchHandlers();
   registerAttachmentHandlers();
+  registerGalleryHandlers();
 }
 
 // Application lifecycle handlers
