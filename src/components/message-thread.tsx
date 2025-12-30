@@ -2,7 +2,7 @@ import { useRef, useEffect, useCallback, useState, useLayoutEffect } from 'react
 import { MessageSquare } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Empty, EmptyMedia, EmptyTitle, EmptyDescription } from '@/components/ui/empty';
-import { MessageBubble } from '@/components/message-bubble';
+import { MessageBubble } from '@/components/messages';
 import { ConversationHeader } from '@/components/conversation-header';
 import { useMessages } from '@/hooks/use-messages';
 import { useRenderTiming } from '@/lib/perf';
