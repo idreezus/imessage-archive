@@ -42,7 +42,7 @@ export const GalleryHeader = memo(function GalleryHeader({
           <h2 className="font-semibold truncate">
             {chatDisplayName ? `${chatDisplayName} Media` : 'All Media'}
           </h2>
-          <p className="text-sm text-muted-foreground">
+          <div className="text-sm text-muted-foreground">
             {isLoading ? (
               <Skeleton className="h-4 w-40" />
             ) : stats ? (
@@ -50,7 +50,7 @@ export const GalleryHeader = memo(function GalleryHeader({
             ) : (
               'Loading...'
             )}
-          </p>
+          </div>
         </div>
       </div>
     </div>
