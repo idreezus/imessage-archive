@@ -1,6 +1,6 @@
 import { isDatabaseOpen } from "../database/connection";
 import { getDatabasePath } from "../shared/paths";
-import { getMessages, getMessagesAroundDate } from "./queries";
+import { getMessages, getMessagesAroundDate, getDateIndex } from "./queries";
 import { MessagesOptions } from "./types";
 import { handleWithTiming } from "../perf";
 
@@ -34,6 +34,14 @@ export function registerMessageHandlers(): void {
       }: { chatId: number; targetDate: number; contextCount?: number }
     ) => {
       return getMessagesAroundDate(chatId, targetDate, contextCount);
+    }
+  );
+
+  // Get date index for timeline scrubber navigation
+  handleWithTiming(
+    "db:get-date-index",
+    async (_event, { chatId }: { chatId: number }) => {
+      return getDateIndex(chatId);
     }
   );
 }

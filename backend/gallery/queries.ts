@@ -385,3 +385,68 @@ export function getAttachmentMetadata(
       : null,
   };
 }
+
+// Re-export DateIndexEntry and DateIndexResponse from messages for type consistency
+export type { DateIndexEntry, DateIndexResponse } from "../messages/queries";
+
+// Raw row from gallery date index query
+type GalleryDateIndexRow = {
+  year: string;
+  month: string;
+  min_date: number;
+  count: number;
+};
+
+// Fetch lightweight month-by-month date index for gallery timeline scrubber.
+// Only includes visual media (images, videos, stickers) that are visible in gallery.
+export function getGalleryDateIndex(
+  chatId: number
+): import("../messages/queries").DateIndexResponse {
+  const timer = startTimer("db", "getGalleryDateIndex");
+  const db = getDatabaseInstance();
+
+  // Group attachments by year-month for the specific chat
+  // Only include non-hidden, completed transfers
+  const query = `
+    SELECT
+      strftime('%Y', cmj.message_date / 1000000000 + 978307200, 'unixepoch') as year,
+      strftime('%m', cmj.message_date / 1000000000 + 978307200, 'unixepoch') as month,
+      MIN(cmj.message_date) as min_date,
+      COUNT(DISTINCT a.ROWID) as count
+    FROM attachment a
+    JOIN message_attachment_join maj ON a.ROWID = maj.attachment_id
+    JOIN message m ON maj.message_id = m.ROWID
+    JOIN chat_message_join cmj ON m.ROWID = cmj.message_id
+    WHERE cmj.chat_id = ?
+      AND a.hide_attachment = 0
+      AND a.transfer_state IN (0, 5)
+    GROUP BY year, month
+    ORDER BY year ASC, month ASC
+  `;
+
+  const rows = db.prepare(query).all(chatId) as GalleryDateIndexRow[];
+  timer.end({ months: rows.length, chatId });
+
+  // Track unique years for adaptive granularity
+  const years = new Set<number>();
+
+  const entries = rows.map((row) => {
+    const year = parseInt(row.year, 10);
+    const month = parseInt(row.month, 10);
+    years.add(year);
+
+    return {
+      monthKey: `${row.year}-${row.month}`,
+      year,
+      month,
+      firstDate: appleToJsTimestamp(row.min_date),
+      count: row.count,
+    };
+  });
+
+  return {
+    entries,
+    totalMonths: entries.length,
+    totalYears: years.size,
+  };
+}

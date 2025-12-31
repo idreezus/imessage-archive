@@ -3,6 +3,7 @@ import {
   getGalleryAttachments,
   getGalleryStats,
   getAttachmentMetadata,
+  getGalleryDateIndex,
 } from "./queries";
 import type { GalleryQueryOptions, GalleryStatsOptions } from "./types";
 
@@ -29,6 +30,14 @@ export function registerGalleryHandlers(): void {
     "gallery:get-attachment-metadata",
     async (_event, { rowid }: { rowid: number }) => {
       return getAttachmentMetadata(rowid);
+    }
+  );
+
+  // Get date index for timeline scrubber navigation
+  handleWithTiming(
+    "gallery:get-date-index",
+    async (_event, { chatId }: { chatId: number }) => {
+      return getGalleryDateIndex(chatId);
     }
   );
 }

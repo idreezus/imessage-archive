@@ -109,6 +109,13 @@ const electronAPI = {
   getAttachmentMetadata: (rowid: number) =>
     ipcRenderer.invoke("gallery:get-attachment-metadata", { rowid }),
 
+  // Timeline scrubber date index API
+  getDateIndex: (chatId: number) =>
+    ipcRenderer.invoke("db:get-date-index", { chatId }),
+
+  getGalleryDateIndex: (chatId: number) =>
+    ipcRenderer.invoke("gallery:get-date-index", { chatId }),
+
   downloadAttachment: (options: DownloadAttachmentOptions) =>
     ipcRenderer.invoke("attachments:download", options),
 

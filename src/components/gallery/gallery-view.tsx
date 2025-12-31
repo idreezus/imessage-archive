@@ -1,5 +1,10 @@
 import { memo, useCallback, useMemo, useRef } from 'react';
-import { VirtuosoGrid, type ListRange, type ScrollSeekConfiguration } from 'react-virtuoso';
+import {
+  VirtuosoGrid,
+  type VirtuosoGridHandle,
+  type ListRange,
+  type ScrollSeekConfiguration,
+} from 'react-virtuoso';
 import { useRenderTiming, measureSync, log } from '@/lib/perf';
 import { useGalleryContext } from './gallery-context';
 import { GalleryHeader } from './gallery-header';
@@ -7,12 +12,16 @@ import { GalleryThumbnail } from './gallery-thumbnail';
 import { GalleryMonthHeader } from './gallery-month-header';
 import { GalleryEmpty } from './gallery-empty';
 import { Lightbox } from '@/components/lightbox';
+import { TimelineScrubber } from '@/components/timeline';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useDateIndex } from '@/hooks/use-date-index';
+import { useVisibleDateRange } from '@/hooks/use-visible-date-range';
 import type {
   GalleryAttachment,
   GalleryGridItem,
   MonthGroup,
 } from '@/types/gallery';
+import type { TimelineTick } from '@/types/timeline';
 
 // Context type for VirtuosoGrid - passed to itemContent and custom components
 type GalleryGridContext = {
@@ -132,6 +141,9 @@ export const GalleryView = memo(function GalleryView() {
     closeLightbox,
   } = useGalleryContext();
 
+  // VirtuosoGrid ref for programmatic scrolling
+  const virtuosoGridRef = useRef<VirtuosoGridHandle>(null);
+
   // Show month headers for chat-scoped view
   const showMonthHeaders = chatId !== null;
   const isGlobalView = chatId === null;
@@ -151,6 +163,34 @@ export const GalleryView = memo(function GalleryView() {
     gridItemCount: gridItems.length,
     isGlobalView,
   });
+
+  // Timeline scrubber hooks (only for chat-scoped view)
+  const { ticks } = useDateIndex({
+    chatId: chatId ?? null,
+    source: 'gallery',
+  });
+
+  const { visibleMonthKey, handleRangeChanged: handleVisibleRangeChanged } =
+    useVisibleDateRange({
+      items: gridItems,
+      source: 'gallery',
+    });
+
+  // Handle timeline tick click - scroll to month header
+  const handleTimelineTickClick = useCallback(
+    (tick: TimelineTick) => {
+      const targetIndex = gridItems.findIndex(
+        (item) => item.type === 'header' && item.monthKey === tick.key
+      );
+      if (targetIndex !== -1 && virtuosoGridRef.current) {
+        virtuosoGridRef.current.scrollToIndex({
+          index: targetIndex,
+          align: 'start',
+        });
+      }
+    },
+    [gridItems]
+  );
 
   // Convert attachments to lightbox format
   const lightboxAttachments = useMemo(() => {
@@ -196,7 +236,7 @@ export const GalleryView = memo(function GalleryView() {
     }
   }, [hasMore, isLoading, loadMore]);
 
-  // Track scroll range changes for performance analysis
+  // Track scroll range changes for performance analysis and timeline scrubber
   const lastRangeRef = useRef<ListRange | null>(null);
   const rangeChangeCountRef = useRef(0);
   const handleRangeChanged = useCallback(
@@ -214,8 +254,11 @@ export const GalleryView = memo(function GalleryView() {
         });
       }
       lastRangeRef.current = range;
+
+      // Update timeline scrubber visible range
+      handleVisibleRangeChanged(range);
     },
-    [gridItems.length]
+    [gridItems.length, handleVisibleRangeChanged]
   );
 
   // Render grid item
@@ -279,8 +322,9 @@ export const GalleryView = memo(function GalleryView() {
       />
 
       {/* Grid */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden relative">
         <VirtuosoGrid
+          ref={virtuosoGridRef}
           totalCount={gridItems.length}
           itemContent={renderItem}
           listClassName="gallery-grid"
@@ -302,6 +346,15 @@ export const GalleryView = memo(function GalleryView() {
             Footer: GalleryFooter,
           }}
         />
+
+        {/* Timeline scrubber for date navigation (chat-scoped view only) */}
+        {chatId !== null && ticks.length > 0 && (
+          <TimelineScrubber
+            ticks={ticks}
+            visibleMonthKey={visibleMonthKey}
+            onTickClick={handleTimelineTickClick}
+          />
+        )}
       </div>
 
       {/* Lightbox */}

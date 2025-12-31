@@ -10,7 +10,11 @@ import {
 } from '@/components/ui/empty';
 import { MessageBubble } from '@/components/messages';
 import { ConversationHeader } from '@/components/conversations/conversation-header';
+import { TimelineScrubber } from '@/components/timeline';
 import { useMessages } from '@/hooks/use-messages';
+import { useDateIndex } from '@/hooks/use-date-index';
+import { useVisibleDateRange } from '@/hooks/use-visible-date-range';
+import { useTimelineNavigation } from '@/hooks/use-timeline-navigation';
 import { useRenderTiming } from '@/lib/perf';
 import type { Conversation } from '@/types';
 
@@ -76,6 +80,34 @@ export function MessageThread({
 
   // Virtuoso ref for imperative scroll control
   const virtuosoRef = useRef<VirtuosoHandle>(null);
+
+  // Timeline scrubber hooks
+  const { ticks, dateIndex } = useDateIndex({
+    chatId: conversation?.rowid ?? null,
+    source: 'messages',
+  });
+
+  const { visibleMonthKey, handleRangeChanged } = useVisibleDateRange({
+    items: messages,
+    source: 'messages',
+  });
+
+  const { scrollToDate } = useTimelineNavigation({
+    virtuosoRef,
+    dateIndex,
+    items: messages,
+    source: 'messages',
+    chatId: conversation?.rowid ?? null,
+    setMessages,
+  });
+
+  // Handle timeline tick click
+  const handleTimelineTickClick = useCallback(
+    (tick: { date: number }) => {
+      scrollToDate(tick.date);
+    },
+    [scrollToDate]
+  );
 
   // State for highlighting target message after navigation
   const [highlightedRowid, setHighlightedRowid] = useState<number | null>(null);
@@ -246,7 +278,7 @@ export function MessageThread({
       />
 
       {/* Messages scroll area */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden relative">
         {showLoading ? (
           // Loading skeleton while fetching messages
           <div className="p-4 space-y-4">
@@ -282,6 +314,8 @@ export function MessageThread({
             overscan={{ main: 100, reverse: 100 }}
             // Load older messages when reaching top
             startReached={handleStartReached}
+            // Track visible range for timeline scrubber
+            rangeChanged={handleRangeChanged}
             // Render each message
             itemContent={renderMessage}
             // Stable key for each item
@@ -292,6 +326,15 @@ export function MessageThread({
             // Add top padding to first item
             style={{ height: '100%' }}
             className="pt-4"
+          />
+        )}
+
+        {/* Timeline scrubber for date navigation */}
+        {isDataReady && ticks.length > 0 && (
+          <TimelineScrubber
+            ticks={ticks}
+            visibleMonthKey={visibleMonthKey}
+            onTickClick={handleTimelineTickClick}
           />
         )}
       </div>

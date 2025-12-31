@@ -21,6 +21,7 @@ import type {
   DownloadResult,
   AttachmentMetadata,
 } from './gallery';
+import type { DateIndexResponse } from './timeline';
 
 // Indexing progress type for media dimension extraction
 export type IndexingProgress = {
@@ -82,6 +83,10 @@ export type ElectronAPI = {
   downloadAttachment: (options: DownloadAttachmentOptions) => Promise<DownloadResult>;
   showInFinder: (localPath: string) => Promise<{ success: boolean; error?: string }>;
   shareAttachment: (localPath: string) => Promise<{ success: boolean; error?: string }>;
+
+  // Timeline scrubber date index API
+  getDateIndex: (chatId: number) => Promise<DateIndexResponse>;
+  getGalleryDateIndex: (chatId: number) => Promise<DateIndexResponse>;
 
   // Indexing API
   getUnindexedCount: () => Promise<number>;
