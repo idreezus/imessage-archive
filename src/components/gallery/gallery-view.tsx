@@ -7,7 +7,7 @@ import { GalleryThumbnail } from './gallery-thumbnail';
 import { GalleryMonthHeader } from './gallery-month-header';
 import { GalleryEmpty } from './gallery-empty';
 import { GalleryFilters } from './gallery-filters';
-import { Lightbox } from '@/components/lightbox/lightbox';
+import { Lightbox } from '@/components/lightbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import type {
   GalleryAttachment,

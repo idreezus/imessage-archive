@@ -97,6 +97,9 @@
   --spacing-lightbox-toolbar: 2.5rem;
   --spacing-lightbox-filmstrip: 4.5rem;
   --spacing-lightbox-thumbnail: 3.5rem;
+
+  /* Sidebar */
+  --spacing-sidebar-header: 2.5rem;
 }
 
 @theme inline {

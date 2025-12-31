@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import type { Message } from '@/types';
-import { Lightbox } from '@/components/attachments';
+import { Lightbox } from '@/components/lightbox';
 import { useMessageAttachments } from '@/hooks/use-message-attachments';
 import { useMessageLightbox } from '@/hooks/use-message-lightbox';
 import { MessageTimestamp } from '@/components/messages/message-timestamp';

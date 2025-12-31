@@ -1,4 +1,4 @@
-import { AppLayout } from '@/components/app-layout';
+import { AppLayout } from '@/components/layout';
 
 // Root application component.
 export function App() {
