@@ -1,7 +1,8 @@
-import { memo, useState, useRef, useEffect } from 'react';
+import { memo, useState, useRef, useCallback } from 'react';
 import { Play, Pause, Mic } from 'lucide-react';
 import type { Attachment } from '@/types';
 import { cn } from '@/lib/utils';
+import { getFullUrl, markUrlFailed } from '@/lib/attachment-url';
 import { UnavailableAttachment } from './unavailable-attachment';
 import { AttachmentContextMenu } from './attachment-context-menu';
 import { formatFileSize } from '@/lib/attachments';
@@ -25,7 +26,9 @@ function isPlayableFormat(attachment: Attachment): boolean {
 
   // CAF (Core Audio Format) and AMR are not playable in browsers
   const unplayableExtensions = ['.caf', '.amr'];
-  return !unplayableExtensions.some(ext => filename.endsWith(ext) || localPath.endsWith(ext));
+  return !unplayableExtensions.some(
+    (ext) => filename.endsWith(ext) || localPath.endsWith(ext)
+  );
 }
 
 export const AudioAttachment = memo(function AudioAttachment({
@@ -33,39 +36,22 @@ export const AudioAttachment = memo(function AudioAttachment({
   isVoiceMemo = false,
 }: AudioAttachmentProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState<number | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
 
   const canPlay = isPlayableFormat(attachment);
 
-  useEffect(() => {
-    if (!attachment.localPath || !canPlay) {
-      if (!canPlay) {
-        // Don't show as error, just mark as not playable
-        setIsLoading(false);
-      } else {
-        setError(true);
-        setIsLoading(false);
-      }
-      return;
-    }
+  // Synchronous URL construction - no async, no IPC
+  const audioUrl = canPlay ? getFullUrl(attachment.localPath) : null;
 
-    window.electronAPI
-      .getAttachmentFileUrl(attachment.localPath)
-      .then((url) => {
-        if (url) {
-          setAudioUrl(url);
-        } else {
-          setError(true);
-        }
-      })
-      .catch(() => setError(true))
-      .finally(() => setIsLoading(false));
-  }, [attachment.localPath, canPlay]);
+  const handleError = useCallback(() => {
+    if (audioUrl) {
+      markUrlFailed(audioUrl);
+    }
+    setError(true);
+  }, [audioUrl]);
 
   const togglePlay = () => {
     if (!audioRef.current) return;
@@ -90,12 +76,6 @@ export const AudioAttachment = memo(function AudioAttachment({
     setCurrentTime(newTime);
   };
 
-  if (isLoading) {
-    return (
-      <div className="animate-pulse bg-muted rounded-lg h-14 w-48" />
-    );
-  }
-
   // Show informative UI for unplayable formats (CAF, AMR)
   if (!canPlay) {
     return (
@@ -108,16 +88,23 @@ export const AudioAttachment = memo(function AudioAttachment({
         >
           <div
             className={cn(
-              'w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0',
+              'w-10 h-10 rounded-full flex items-center justify-center shrink-0',
               isVoiceMemo ? 'bg-primary/30' : 'bg-muted-foreground/20'
             )}
           >
-            <Mic className={cn('w-5 h-5', isVoiceMemo ? 'text-primary' : 'text-muted-foreground')} />
+            <Mic
+              className={cn(
+                'w-5 h-5',
+                isVoiceMemo ? 'text-primary' : 'text-muted-foreground'
+              )}
+            />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm text-muted-foreground">Voice memo</p>
             <p className="text-xs text-muted-foreground/70">
-              {attachment.totalBytes ? formatFileSize(attachment.totalBytes) : 'Format not playable in browser'}
+              {attachment.totalBytes
+                ? formatFileSize(attachment.totalBytes)
+                : 'Format not playable in browser'}
             </p>
           </div>
         </div>
@@ -148,20 +135,31 @@ export const AudioAttachment = memo(function AudioAttachment({
             setIsPlaying(false);
             setCurrentTime(0);
           }}
+          onError={handleError}
           preload="metadata"
         />
 
         <button
           onClick={togglePlay}
           className={cn(
-            'w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0',
+            'w-10 h-10 rounded-full flex items-center justify-center shrink-0',
             isVoiceMemo ? 'bg-primary' : 'bg-foreground'
           )}
         >
           {isPlaying ? (
-            <Pause className={cn('w-5 h-5', isVoiceMemo ? 'text-primary-foreground' : 'text-background')} />
+            <Pause
+              className={cn(
+                'w-5 h-5',
+                isVoiceMemo ? 'text-primary-foreground' : 'text-background'
+              )}
+            />
           ) : (
-            <Play className={cn('w-5 h-5 ml-0.5', isVoiceMemo ? 'text-primary-foreground' : 'text-background')} />
+            <Play
+              className={cn(
+                'w-5 h-5 ml-0.5',
+                isVoiceMemo ? 'text-primary-foreground' : 'text-background'
+              )}
+            />
           )}
         </button>
 

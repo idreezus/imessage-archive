@@ -10,8 +10,6 @@ export const MessageSender = memo(function MessageSender({
   senderHandle,
 }: MessageSenderProps) {
   return (
-    <p className="text-xs text-muted-foreground font-mono mb-1 ml-3">
-      {senderHandle.id}
-    </p>
+    <p className="text-xs text-muted-foreground mb-1 ml-3">{senderHandle.id}</p>
   );
 });

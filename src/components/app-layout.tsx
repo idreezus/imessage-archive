@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Images } from 'lucide-react';
 import {
   SidebarProvider,
@@ -34,6 +34,16 @@ function AppLayoutInner() {
 
   const search = useSearchContext();
   const gallery = useGalleryContext();
+
+  // Auto-close gallery when navigating to a different conversation
+  useEffect(() => {
+    if (gallery.isGalleryOpen && selectedConversation) {
+      // If viewing a chat-specific gallery and switching to a different chat
+      if (gallery.chatId !== null && gallery.chatId !== selectedConversation.rowid) {
+        gallery.closeGallery();
+      }
+    }
+  }, [selectedConversation?.rowid, gallery.isGalleryOpen, gallery.chatId, gallery.closeGallery]);
 
   // Handle clicking a search result
   const handleSearchResultClick = useCallback(

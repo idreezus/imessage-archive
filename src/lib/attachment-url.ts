@@ -8,6 +8,17 @@ const failedUrls = new Set<string>();
 export const THUMBNAIL_SIZE = 240;
 
 /**
+ * Construct full-resolution attachment URL synchronously.
+ * Returns null if the URL has previously failed (404).
+ */
+export function getFullUrl(localPath: string | null): string | null {
+  if (!localPath) return null;
+  const url = `attachment://file/${localPath}`;
+  if (failedUrls.has(url)) return null; // Already failed, skip retry
+  return url;
+}
+
+/**
  * Construct thumbnail URL synchronously.
  * Returns null if the URL has previously failed (404).
  */

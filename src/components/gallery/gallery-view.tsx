@@ -63,12 +63,14 @@ function flattenToGridItems(
   return items;
 }
 
-// Loading skeleton grid
+// Loading skeleton grid - uses same CSS classes as VirtuosoGrid for consistency
 function LoadingSkeleton() {
   return (
-    <div className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-1 p-2">
+    <div className="gallery-grid">
       {Array.from({ length: 24 }).map((_, i) => (
-        <Skeleton key={i} className="aspect-square rounded-lg" />
+        <div key={i} className="gallery-grid-item">
+          <Skeleton className="w-full h-full rounded-lg" />
+        </div>
       ))}
     </div>
   );

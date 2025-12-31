@@ -1,7 +1,8 @@
-import { memo, useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { memo, useState, useCallback, useMemo, useRef } from 'react';
 import { Play } from 'lucide-react';
 import type { Attachment } from '@/types';
 import { cn } from '@/lib/utils';
+import { getFullUrl, markUrlFailed } from '@/lib/attachment-url';
 import { UnavailableAttachment } from './unavailable-attachment';
 import { AttachmentContextMenu } from './attachment-context-menu';
 
@@ -52,10 +53,12 @@ export const VideoAttachment = memo(function VideoAttachment({
   maxHeight = MAX_HEIGHT,
 }: VideoAttachmentProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
   const [naturalDimensions, setNaturalDimensions] = useState<{ width: number; height: number } | null>(null);
+
+  // Synchronous URL construction - no async, no IPC
+  const videoUrl = getFullUrl(attachment.localPath);
 
   // Calculate placeholder dimensions - use a reasonable default aspect ratio (16:9)
   const placeholderDimensions = useMemo(() => ({
@@ -74,29 +77,6 @@ export const VideoAttachment = memo(function VideoAttachment({
     );
   }, [naturalDimensions, maxWidth, maxHeight]);
 
-  useEffect(() => {
-    if (!attachment.localPath) {
-      setError(true);
-      setIsLoading(false);
-      return;
-    }
-
-    window.electronAPI
-      .getAttachmentFileUrl(attachment.localPath)
-      .then((url) => {
-        if (url) {
-          setVideoUrl(url);
-        } else {
-          setError(true);
-          setIsLoading(false);
-        }
-      })
-      .catch(() => {
-        setError(true);
-        setIsLoading(false);
-      });
-  }, [attachment.localPath]);
-
   const handleLoadedMetadata = useCallback(() => {
     const video = videoRef.current;
     if (video) {
@@ -109,22 +89,15 @@ export const VideoAttachment = memo(function VideoAttachment({
   }, []);
 
   const handleError = useCallback(() => {
+    if (videoUrl) {
+      markUrlFailed(videoUrl);
+    }
     setError(true);
     setIsLoading(false);
-  }, []);
+  }, [videoUrl]);
 
-  if (error) {
+  if (error || !videoUrl) {
     return <UnavailableAttachment attachment={attachment} />;
-  }
-
-  // Show placeholder while fetching URL
-  if (!videoUrl) {
-    return (
-      <div
-        className="animate-pulse bg-muted rounded-2xl"
-        style={placeholderDimensions}
-      />
-    );
   }
 
   // Use display dimensions if available, otherwise use placeholder dimensions

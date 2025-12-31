@@ -1,17 +1,20 @@
 import { memo, useEffect, useState } from 'react';
-import { Copy, Check } from 'lucide-react';
+import { Download, Share, FolderOpen } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
+  SheetFooter,
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
+import { ButtonGroup } from '@/components/ui/button-group';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Separator } from '@/components/ui/separator';
 import type { Attachment } from '@/types';
 import type { AttachmentMetadata } from '@/types/gallery';
 import { formatFileSize, getDisplayName } from '@/lib/attachments';
+import { useAttachmentActions } from '@/hooks/use-attachment-actions';
 import { format } from 'date-fns';
 
 type AttachmentInfoSheetProps = {
@@ -20,65 +23,47 @@ type AttachmentInfoSheetProps = {
   onClose: () => void;
 };
 
-type InfoRowProps = {
+type MetadataRowProps = {
   label: string;
   value: string | null | undefined;
-  copyable?: boolean;
 };
 
-function InfoRow({ label, value, copyable }: InfoRowProps) {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = async () => {
-    if (!value) return;
-    await navigator.clipboard.writeText(value);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
+function MetadataRow({ label, value }: MetadataRowProps) {
   if (!value) return null;
 
   return (
-    <div className="flex flex-col gap-0.5 py-2">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <div className="flex items-center gap-2">
-        <span className="text-sm break-all">{value}</span>
-        {copyable && (
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            onClick={handleCopy}
-            className="shrink-0"
-          >
-            {copied ? (
-              <Check className="size-3 text-green-500" />
-            ) : (
-              <Copy className="size-3" />
-            )}
-          </Button>
-        )}
-      </div>
+    <div className="flex flex-col gap-0.5">
+      <span className="font-mono tracking-tight text-xs text-muted-foreground">
+        {label}
+      </span>
+      <span className="text-sm font-medium break-all">{value}</span>
     </div>
   );
 }
 
-function formatDate(timestamp: number | null): string {
-  if (!timestamp) return 'Unknown';
-  return format(new Date(timestamp), 'MMM d, yyyy h:mm a');
+function MetadataRowSkeleton() {
+  return (
+    <div className="flex flex-col gap-1">
+      <Skeleton className="h-3 w-20" />
+      <Skeleton className="h-4 w-32" />
+    </div>
+  );
 }
 
-function getTypeName(type: string): string {
-  const typeNames: Record<string, string> = {
-    image: 'Image',
-    video: 'Video',
-    audio: 'Audio',
-    'voice-memo': 'Voice Memo',
-    sticker: 'Sticker',
-    document: 'Document',
-    other: 'File',
-  };
-  return typeNames[type] || 'File';
+function formatDate(timestamp: number | null): string | null {
+  if (!timestamp) return null;
+  return format(new Date(timestamp), 'MMM d, yyyy, h:mm a');
 }
+
+const TYPE_LABELS: Record<string, string> = {
+  image: 'Image',
+  video: 'Video',
+  audio: 'Audio',
+  'voice-memo': 'Voice Memo',
+  sticker: 'Sticker',
+  document: 'Document',
+  other: 'File',
+};
 
 export const AttachmentInfoSheet = memo(function AttachmentInfoSheet({
   attachment,
@@ -87,6 +72,8 @@ export const AttachmentInfoSheet = memo(function AttachmentInfoSheet({
 }: AttachmentInfoSheetProps) {
   const [metadata, setMetadata] = useState<AttachmentMetadata | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const { download, share, showInFinder, isDownloading, isSharing } =
+    useAttachmentActions(attachment);
 
   useEffect(() => {
     if (!isOpen || !attachment) {
@@ -104,78 +91,92 @@ export const AttachmentInfoSheet = memo(function AttachmentInfoSheet({
 
   if (!attachment) return null;
 
+  const displayName = getDisplayName(attachment);
+  const typeLabel = TYPE_LABELS[attachment.type] || 'File';
+  const hasLocalPath = Boolean(attachment.localPath);
+
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent side="right" className="w-80 overflow-y-auto">
-        <SheetHeader className="mb-4">
-          <SheetTitle>File Info</SheetTitle>
+      <SheetContent side="right" className="flex flex-col">
+        <SheetHeader className="border-b">
+          <SheetTitle className="text-base font-medium">File Info</SheetTitle>
+          <SheetDescription>
+            Details and metadata for this attachment
+          </SheetDescription>
         </SheetHeader>
 
-        {isLoading ? (
-          <div className="space-y-4">
-            <Skeleton className="h-4 w-full" />
-            <Skeleton className="h-4 w-3/4" />
-            <Skeleton className="h-4 w-1/2" />
-          </div>
-        ) : (
-          <div className="space-y-1">
-            <InfoRow label="Filename" value={getDisplayName(attachment)} />
-            <Separator />
-
-            <InfoRow label="Type" value={getTypeName(attachment.type)} />
-            <Separator />
-
-            <InfoRow
-              label="Size"
-              value={formatFileSize(attachment.totalBytes)}
-            />
-            <Separator />
-
-            {attachment.mimeType && (
-              <>
-                <InfoRow label="MIME Type" value={attachment.mimeType} />
-                <Separator />
-              </>
-            )}
-
-            {metadata?.messageDate && (
-              <>
-                <InfoRow
-                  label="Date"
-                  value={formatDate(metadata.messageDate)}
-                />
-                <Separator />
-              </>
-            )}
-
-            <InfoRow
-              label="From"
-              value={
-                metadata?.isFromMe
-                  ? 'You'
-                  : metadata?.senderHandle || 'Unknown'
-              }
-            />
-            <Separator />
-
-            {metadata?.chatDisplayName && (
-              <>
-                <InfoRow
-                  label="Conversation"
-                  value={metadata.chatDisplayName}
-                />
-                <Separator />
-              </>
-            )}
-
-            {metadata?.absolutePath && (
-              <InfoRow
-                label="Path"
-                value={metadata.absolutePath}
-                copyable
+        <div className="flex-1 overflow-y-auto px-4">
+          {isLoading ? (
+            <div className="flex flex-col gap-5 py-6">
+              <MetadataRowSkeleton />
+              <MetadataRowSkeleton />
+              <MetadataRowSkeleton />
+              <MetadataRowSkeleton />
+            </div>
+          ) : (
+            <div className="flex flex-col gap-5">
+              <MetadataRow label="Filename" value={displayName} />
+              <MetadataRow label="Type" value={typeLabel} />
+              <MetadataRow
+                label="Size"
+                value={formatFileSize(attachment.totalBytes)}
               />
-            )}
-          </div>
+              <MetadataRow label="MIME" value={attachment.mimeType} />
+              <MetadataRow
+                label="Date"
+                value={formatDate(metadata?.messageDate ?? null)}
+              />
+              <MetadataRow
+                label="From"
+                value={
+                  metadata?.isFromMe
+                    ? 'You'
+                    : metadata?.senderHandle || undefined
+                }
+              />
+              <MetadataRow
+                label="Conversation"
+                value={metadata?.chatDisplayName}
+              />
+              <MetadataRow label="Path" value={metadata?.absolutePath} />
+            </div>
+          )}
+        </div>
+
+        {hasLocalPath && (
+          <SheetFooter className="border-t pt-4 px-4">
+            <ButtonGroup className="w-full">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={download}
+                disabled={isDownloading}
+                className="flex-1"
+              >
+                <Download className="size-4" />
+                Save
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={share}
+                disabled={isSharing}
+                className="flex-1"
+              >
+                <Share className="size-4" />
+                Share
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={showInFinder}
+                className="flex-1"
+              >
+                <FolderOpen className="size-4" />
+                Finder
+              </Button>
+            </ButtonGroup>
+          </SheetFooter>
         )}
       </SheetContent>
     </Sheet>

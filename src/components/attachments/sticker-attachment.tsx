@@ -1,5 +1,6 @@
-import { memo, useState, useEffect } from 'react';
+import { memo, useState, useCallback } from 'react';
 import type { Attachment } from '@/types';
+import { getFullUrl, markUrlFailed } from '@/lib/attachment-url';
 import { UnavailableAttachment } from './unavailable-attachment';
 import { AttachmentContextMenu } from './attachment-context-menu';
 
@@ -10,35 +11,17 @@ type StickerAttachmentProps = {
 export const StickerAttachment = memo(function StickerAttachment({
   attachment,
 }: StickerAttachmentProps) {
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
 
-  useEffect(() => {
-    if (!attachment.localPath) {
-      setError(true);
-      setIsLoading(false);
-      return;
+  // Synchronous URL construction - no async, no IPC
+  const imageUrl = getFullUrl(attachment.localPath);
+
+  const handleError = useCallback(() => {
+    if (imageUrl) {
+      markUrlFailed(imageUrl);
     }
-
-    window.electronAPI
-      .getAttachmentFileUrl(attachment.localPath)
-      .then((url) => {
-        if (url) {
-          setImageUrl(url);
-        } else {
-          setError(true);
-        }
-      })
-      .catch(() => setError(true))
-      .finally(() => setIsLoading(false));
-  }, [attachment.localPath]);
-
-  if (isLoading) {
-    return (
-      <div className="animate-pulse bg-muted/50 rounded-lg w-[120px] h-[120px]" />
-    );
-  }
+    setError(true);
+  }, [imageUrl]);
 
   if (error || !imageUrl) {
     return <UnavailableAttachment attachment={attachment} />;
@@ -53,6 +36,7 @@ export const StickerAttachment = memo(function StickerAttachment({
           className="object-contain"
           style={{ maxWidth: 120, maxHeight: 120 }}
           loading="lazy"
+          onError={handleError}
         />
       </div>
     </AttachmentContextMenu>

@@ -1,6 +1,7 @@
-import { memo, useState, useEffect, useCallback, useMemo } from 'react';
+import { memo, useState, useCallback, useMemo } from 'react';
 import type { Attachment } from '@/types';
 import { cn } from '@/lib/utils';
+import { getFullUrl, markUrlFailed } from '@/lib/attachment-url';
 import { UnavailableAttachment } from './unavailable-attachment';
 import { AttachmentContextMenu } from './attachment-context-menu';
 
@@ -50,10 +51,12 @@ export const ImageAttachment = memo(function ImageAttachment({
   maxWidth = MAX_WIDTH,
   maxHeight = MAX_HEIGHT,
 }: ImageAttachmentProps) {
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
   const [naturalDimensions, setNaturalDimensions] = useState<{ width: number; height: number } | null>(null);
+
+  // Synchronous URL construction - no async, no IPC
+  const imageUrl = getFullUrl(attachment.localPath);
 
   // Calculate placeholder dimensions - use a reasonable default aspect ratio
   const placeholderDimensions = useMemo(() => ({
@@ -72,29 +75,6 @@ export const ImageAttachment = memo(function ImageAttachment({
     );
   }, [naturalDimensions, maxWidth, maxHeight]);
 
-  useEffect(() => {
-    if (!attachment.localPath) {
-      setError(true);
-      setIsLoading(false);
-      return;
-    }
-
-    window.electronAPI
-      .getAttachmentFileUrl(attachment.localPath)
-      .then((url) => {
-        if (url) {
-          setImageUrl(url);
-        } else {
-          setError(true);
-          setIsLoading(false);
-        }
-      })
-      .catch(() => {
-        setError(true);
-        setIsLoading(false);
-      });
-  }, [attachment.localPath]);
-
   const handleImageLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
     const img = e.currentTarget;
     setNaturalDimensions({
@@ -104,18 +84,16 @@ export const ImageAttachment = memo(function ImageAttachment({
     setIsLoading(false);
   }, []);
 
-  if (error) {
-    return <UnavailableAttachment attachment={attachment} />;
-  }
+  const handleError = useCallback(() => {
+    if (imageUrl) {
+      markUrlFailed(imageUrl);
+    }
+    setError(true);
+    setIsLoading(false);
+  }, [imageUrl]);
 
-  // Show placeholder while fetching URL
-  if (!imageUrl) {
-    return (
-      <div
-        className="animate-pulse bg-muted rounded-2xl"
-        style={placeholderDimensions}
-      />
-    );
+  if (error || !imageUrl) {
+    return <UnavailableAttachment attachment={attachment} />;
   }
 
   // Use display dimensions if available, otherwise constrain with maxWidth/maxHeight
@@ -147,7 +125,7 @@ export const ImageAttachment = memo(function ImageAttachment({
             isLoading ? 'opacity-0' : 'opacity-100'
           )}
           onLoad={handleImageLoad}
-          onError={() => setError(true)}
+          onError={handleError}
         />
       </button>
     </AttachmentContextMenu>

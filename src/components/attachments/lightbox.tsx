@@ -3,6 +3,7 @@ import { X, ChevronLeft, ChevronRight, Play } from 'lucide-react';
 import type { Attachment } from '@/types';
 import { cn } from '@/lib/utils';
 import { getThumbnailUrl, markUrlFailed } from '@/lib/attachment-url';
+import { Button } from '@/components/ui/button';
 import { LightboxToolbar } from './lightbox-toolbar';
 import { AttachmentInfoSheet } from './attachment-info-sheet';
 
@@ -133,168 +134,163 @@ export const Lightbox = memo(function Lightbox({
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center"
-      onClick={onClose}
-    >
-      {/* Close button */}
-      <button
+    <div className="fixed inset-0 z-50 bg-black/95 flex flex-col">
+      {/* Top bar */}
+      <div className="shrink-0 flex items-center justify-end p-4">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onClose}
+          className="text-white hover:bg-white/20 hover:text-white"
+        >
+          <X className="size-6" />
+        </Button>
+      </div>
+
+      {/* Content - fills remaining space */}
+      <div
+        className="flex-1 flex items-center justify-center overflow-hidden relative px-4"
         onClick={onClose}
-        className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"
       >
-        <X className="w-6 h-6 text-white" />
-      </button>
+        {/* Previous button */}
+        {hasMultiple && hasPrev && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={(e) => {
+              e.stopPropagation();
+              goToPrev();
+            }}
+            className="absolute left-4 z-10 size-12 rounded-full text-white hover:bg-white/20 hover:text-white"
+          >
+            <ChevronLeft className="size-8" />
+          </Button>
+        )}
 
-      {/* Counter */}
-      {hasMultiple && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 text-white text-sm font-medium">
-          {currentIndex + 1} of {attachments.length}
-        </div>
-      )}
-
-      {/* Previous button */}
-      {hasMultiple && hasPrev && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            goToPrev();
-          }}
-          className="absolute left-4 z-10 w-12 h-12 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"
-        >
-          <ChevronLeft className="w-8 h-8 text-white" />
-        </button>
-      )}
-
-      {/* Next button */}
-      {hasMultiple && hasNext && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            goToNext();
-          }}
-          className="absolute right-4 z-10 w-12 h-12 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"
-        >
-          <ChevronRight className="w-8 h-8 text-white" />
-        </button>
-      )}
-
-      {/* Thumbnail filmstrip */}
-      {hasMultiple && (
+        {/* Media content */}
         <div
-          className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 max-w-[80vw]"
+          className="max-w-[90vw] max-h-full flex items-center justify-center"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex gap-1.5 p-2 bg-black/60 backdrop-blur-sm rounded-xl overflow-x-auto scrollbar-hide">
-            {attachments.map((attachment, index) => {
-              // Synchronous URL construction - no async, no IPC
-              const isMedia =
-                attachment.type === 'image' || attachment.type === 'video';
-              const thumbnailUrl =
-                isMedia && !failedThumbnails.has(attachment.rowid)
-                  ? getThumbnailUrl(attachment.localPath)
-                  : null;
-              const isActive = index === currentIndex;
+          {isLoading && (
+            <div className="w-16 h-16 border-4 border-white/20 border-t-white rounded-full animate-spin" />
+          )}
 
-              return (
-                <button
-                  key={attachment.rowid}
-                  ref={(el) => {
-                    if (el) thumbnailRefs.current.set(attachment.rowid, el);
-                  }}
-                  onClick={() => setCurrentIndex(index)}
-                  className={cn(
-                    'relative shrink-0 w-14 h-14 rounded-lg overflow-hidden transition-all',
-                    isActive
-                      ? 'ring-2 ring-white opacity-100'
-                      : 'opacity-50 hover:opacity-75'
-                  )}
-                >
-                  {thumbnailUrl ? (
-                    <>
-                      <img
-                        src={thumbnailUrl}
-                        className="w-full h-full object-cover"
-                        alt=""
-                        loading="lazy"
-                        decoding="async"
-                        onError={() => {
-                          markUrlFailed(thumbnailUrl);
-                          setFailedThumbnails((prev) =>
-                            new Set(prev).add(attachment.rowid)
-                          );
-                        }}
-                      />
-                      {attachment.type === 'video' && (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <Play className="w-4 h-4 text-white drop-shadow" />
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <div className="w-full h-full bg-white/10 flex items-center justify-center">
-                      <Play className="w-4 h-4 text-white/50" />
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
+          {!isLoading && mediaUrl && current?.type === 'image' && (
+            <img
+              src={mediaUrl}
+              alt={current.transferName || 'Image'}
+              className="max-w-full max-h-full object-contain"
+            />
+          )}
+
+          {!isLoading && mediaUrl && current?.type === 'video' && (
+            <video
+              ref={videoRef}
+              src={mediaUrl}
+              controls
+              autoPlay
+              className="max-w-full max-h-full"
+            />
+          )}
+
+          {!isLoading && !mediaUrl && (
+            <div className="text-white text-center">
+              <p className="text-lg">Unable to load media</p>
+              <p className="text-sm text-white/60 mt-1">
+                {current?.transferName || 'File not found'}
+              </p>
+            </div>
+          )}
         </div>
-      )}
 
-      {/* Media content */}
-      <div
-        className={cn(
-          'max-w-[90vw] flex items-center justify-center',
-          hasMultiple ? 'max-h-[calc(90vh-6rem)]' : 'max-h-[90vh]'
-        )}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {isLoading && (
-          <div className="w-16 h-16 border-4 border-white/20 border-t-white rounded-full animate-spin" />
-        )}
-
-        {!isLoading && mediaUrl && current?.type === 'image' && (
-          <img
-            src={mediaUrl}
-            alt={current.transferName || 'Image'}
-            className={cn(
-              'max-w-full object-contain',
-              hasMultiple ? 'max-h-[calc(90vh-6rem)]' : 'max-h-[90vh]'
-            )}
-          />
-        )}
-
-        {!isLoading && mediaUrl && current?.type === 'video' && (
-          <video
-            ref={videoRef}
-            src={mediaUrl}
-            controls
-            autoPlay
-            className={cn(
-              'max-w-full',
-              hasMultiple ? 'max-h-[calc(90vh-6rem)]' : 'max-h-[90vh]'
-            )}
-          />
-        )}
-
-        {!isLoading && !mediaUrl && (
-          <div className="text-white text-center">
-            <p className="text-lg">Unable to load media</p>
-            <p className="text-sm text-white/60 mt-1">
-              {current?.transferName || 'File not found'}
-            </p>
-          </div>
+        {/* Next button */}
+        {hasMultiple && hasNext && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={(e) => {
+              e.stopPropagation();
+              goToNext();
+            }}
+            className="absolute right-4 z-10 size-12 rounded-full text-white hover:bg-white/20 hover:text-white"
+          >
+            <ChevronRight className="size-8" />
+          </Button>
         )}
       </div>
 
       {/* Toolbar */}
       {showToolbar && current && (
-        <LightboxToolbar
-          attachment={current}
-          onToggleInfo={() => setIsInfoOpen(!isInfoOpen)}
-          isInfoOpen={isInfoOpen}
-        />
+        <div className="shrink-0 py-2">
+          <LightboxToolbar
+            attachment={current}
+            onToggleInfo={() => setIsInfoOpen(!isInfoOpen)}
+            isInfoOpen={isInfoOpen}
+          />
+        </div>
+      )}
+
+      {/* Thumbnail filmstrip */}
+      {hasMultiple && (
+        <div
+          className="shrink-0 flex gap-1.5 p-2 bg-black/60 backdrop-blur-sm overflow-x-auto scrollbar-hide"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {attachments.map((attachment, index) => {
+            // Synchronous URL construction - no async, no IPC
+            const isMedia =
+              attachment.type === 'image' || attachment.type === 'video';
+            const thumbnailUrl =
+              isMedia && !failedThumbnails.has(attachment.rowid)
+                ? getThumbnailUrl(attachment.localPath)
+                : null;
+            const isActive = index === currentIndex;
+
+            return (
+              <button
+                key={attachment.rowid}
+                ref={(el) => {
+                  if (el) thumbnailRefs.current.set(attachment.rowid, el);
+                }}
+                onClick={() => setCurrentIndex(index)}
+                className={cn(
+                  'relative shrink-0 w-14 h-14 rounded-lg overflow-hidden transition-all',
+                  isActive
+                    ? 'ring-2 ring-white opacity-100'
+                    : 'opacity-50 hover:opacity-75'
+                )}
+              >
+                {thumbnailUrl ? (
+                  <>
+                    <img
+                      src={thumbnailUrl}
+                      className="w-full h-full object-cover"
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                      onError={() => {
+                        markUrlFailed(thumbnailUrl);
+                        setFailedThumbnails((prev) =>
+                          new Set(prev).add(attachment.rowid)
+                        );
+                      }}
+                    />
+                    {attachment.type === 'video' && (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <Play className="size-4 text-white drop-shadow" />
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="w-full h-full bg-white/10 flex items-center justify-center">
+                    <Play className="size-4 text-white/50" />
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
       )}
 
       {/* Info Sheet */}

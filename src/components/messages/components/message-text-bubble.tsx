@@ -47,11 +47,10 @@ export const MessageTextBubble = memo(function MessageTextBubble({
       <MessageContextMenu message={message}>
         <div
           className={cn(
-            'px-4 py-2 rounded-2xl',
+            'px-4 py-2 rounded-2xl w-fit',
             isFromMe
               ? 'bg-primary text-primary-foreground'
               : 'bg-muted text-foreground',
-            hasReactions && 'mt-3',
             hasNonMediaAttachments && 'p-1'
           )}
         >

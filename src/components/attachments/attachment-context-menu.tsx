@@ -1,5 +1,5 @@
-import { memo, useCallback, type ReactNode } from 'react';
-import { Download, Folder, Share } from 'lucide-react';
+import { memo, useCallback, useState, type ReactNode } from 'react';
+import { Download, Folder, Share, Info } from 'lucide-react';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -7,6 +7,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
+import { AttachmentInfoSheet } from './attachment-info-sheet';
 import type { Attachment } from '@/types';
 import { getDisplayName } from '@/lib/attachments';
 
@@ -19,6 +20,8 @@ export const AttachmentContextMenu = memo(function AttachmentContextMenu({
   attachment,
   children,
 }: AttachmentContextMenuProps) {
+  const [isInfoOpen, setIsInfoOpen] = useState(false);
+
   const handleDownload = useCallback(async () => {
     if (!attachment.localPath) return;
 
@@ -68,23 +71,36 @@ export const AttachmentContextMenu = memo(function AttachmentContextMenu({
   }
 
   return (
-    <ContextMenu>
-      <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
-      <ContextMenuContent>
-        <ContextMenuItem onClick={handleDownload}>
-          <Download className="size-4" />
-          Save As...
-        </ContextMenuItem>
-        <ContextMenuSeparator />
-        <ContextMenuItem onClick={handleShowInFinder}>
-          <Folder className="size-4" />
-          Show in Finder
-        </ContextMenuItem>
-        <ContextMenuItem onClick={handleShare}>
-          <Share className="size-4" />
-          Share
-        </ContextMenuItem>
-      </ContextMenuContent>
-    </ContextMenu>
+    <>
+      <ContextMenu>
+        <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
+        <ContextMenuContent>
+          <ContextMenuItem onClick={handleDownload}>
+            <Download className="size-4" />
+            Save As...
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem onClick={handleShowInFinder}>
+            <Folder className="size-4" />
+            Show in Finder
+          </ContextMenuItem>
+          <ContextMenuItem onClick={handleShare}>
+            <Share className="size-4" />
+            Share
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem onClick={() => setIsInfoOpen(true)}>
+            <Info className="size-4" />
+            More Info
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
+
+      <AttachmentInfoSheet
+        attachment={attachment}
+        isOpen={isInfoOpen}
+        onClose={() => setIsInfoOpen(false)}
+      />
+    </>
   );
 });
