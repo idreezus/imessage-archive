@@ -21,6 +21,37 @@ type MessageThreadProps = {
   onOpenGallery?: (chatId: number, chatName: string) => void;
 };
 
+// Context type for virtuoso components
+type MessageThreadContext = {
+  hasMore: boolean;
+  isLoading: boolean;
+};
+
+// Header component for loading older messages indicator
+function MessageListHeader({
+  context,
+}: {
+  context?: MessageThreadContext;
+}) {
+  if (!context?.hasMore) return null;
+  return (
+    <div className="flex justify-center py-4">
+      {context.isLoading ? (
+        <Skeleton className="h-4 w-24" />
+      ) : (
+        <span className="text-xs text-muted-foreground">
+          Scroll up for older messages
+        </span>
+      )}
+    </div>
+  );
+}
+
+// Stable components object to prevent remounting
+const virtuosoComponents = {
+  Header: MessageListHeader,
+};
+
 // Message thread panel displaying conversation messages with virtualized scrolling.
 export function MessageThread({
   conversation,
@@ -28,10 +59,17 @@ export function MessageThread({
   onScrollComplete,
   onOpenGallery,
 }: MessageThreadProps) {
-  const { messages, isLoading, hasMore, loadMore, setMessages, loadedChatId } =
-    useMessages({
-      chatId: conversation?.rowid ?? null,
-    });
+  const {
+    messages,
+    isLoading,
+    hasMore,
+    loadMore,
+    setMessages,
+    loadedChatId,
+    firstItemIndex,
+  } = useMessages({
+    chatId: conversation?.rowid ?? null,
+  });
 
   // Track render performance
   useRenderTiming('MessageThread', { messageCount: messages.length });
@@ -231,6 +269,8 @@ export function MessageThread({
           <Virtuoso
             ref={virtuosoRef}
             data={messages}
+            // Enable stable scroll position when prepending older messages
+            firstItemIndex={firstItemIndex}
             // Start at bottom on initial load
             initialTopMostItemIndex={
               messages.length > 0 ? messages.length - 1 : 0
@@ -239,28 +279,16 @@ export function MessageThread({
             alignToBottom={true}
             // Performance tuning
             defaultItemHeight={80}
-            overscan={{ main: 200, reverse: 200 }}
+            overscan={{ main: 100, reverse: 100 }}
             // Load older messages when reaching top
             startReached={handleStartReached}
             // Render each message
             itemContent={renderMessage}
             // Stable key for each item
             computeItemKey={(_, message) => message.rowid}
-            // Header shows loading indicator when fetching older messages
-            components={{
-              Header: () =>
-                hasMore ? (
-                  <div className="flex justify-center py-4">
-                    {isLoading ? (
-                      <Skeleton className="h-4 w-24" />
-                    ) : (
-                      <span className="text-xs text-muted-foreground">
-                        Scroll up for older messages
-                      </span>
-                    )}
-                  </div>
-                ) : null,
-            }}
+            // Pass dynamic state to Header via context
+            context={{ hasMore, isLoading }}
+            components={virtuosoComponents}
             // Add top padding to first item
             style={{ height: '100%' }}
             className="pt-4"

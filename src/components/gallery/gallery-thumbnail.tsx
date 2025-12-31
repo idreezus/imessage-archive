@@ -139,17 +139,6 @@ export const GalleryThumbnail = memo(function GalleryThumbnail({
             </div>
           </div>
         )}
-
-        {/* Direction indicator - only show after image loads */}
-        {!isLoading && (
-          <div
-            className={cn(
-              'absolute bottom-1 right-1 w-2 h-2 rounded-full',
-              attachment.isFromMe ? 'bg-primary' : 'bg-muted-foreground'
-            )}
-            title={attachment.isFromMe ? 'Sent' : 'Received'}
-          />
-        )}
       </button>
     </AttachmentContextMenu>
   );

@@ -17,6 +17,8 @@ type UseMessagesReturn = {
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
   /** The chatId these messages belong to (for consistency checking) */
   loadedChatId: number | null;
+  /** Starting index for virtuoso firstItemIndex prop (decreases when prepending) */
+  firstItemIndex: number;
 };
 
 // Cache for previously loaded messages - persists across hook instances
@@ -57,6 +59,8 @@ export function useMessages(options: UseMessagesOptions): UseMessagesReturn {
   const [error, setError] = useState<Error | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [loadedChatId, setLoadedChatId] = useState<number | null>(null);
+  // Starting index for virtuoso - decreases when prepending older messages
+  const [firstItemIndex, setFirstItemIndex] = useState(100000);
 
   // Track oldest message date for cursor pagination
   const oldestDateRef = useRef<number | undefined>(undefined);
@@ -80,7 +84,8 @@ export function useMessages(options: UseMessagesOptions): UseMessagesReturn {
         timer.end({ chatId: opts.chatId, limit: opts.limit, messages: result.messages.length });
 
         if (prepend) {
-          // Prepend older messages at the beginning
+          // Prepend older messages and adjust firstItemIndex for stable scroll
+          setFirstItemIndex((prev) => prev - result.messages.length);
           setMessages((prev) => [...result.messages, ...prev]);
         } else {
           setMessages(result.messages);
@@ -124,6 +129,7 @@ export function useMessages(options: UseMessagesOptions): UseMessagesReturn {
       setMessages([]);
       setHasMore(false);
       setLoadedChatId(null);
+      setFirstItemIndex(100000);
       oldestDateRef.current = undefined;
       return;
     }
@@ -137,6 +143,7 @@ export function useMessages(options: UseMessagesOptions): UseMessagesReturn {
       setMessages(cached.messages);
       setHasMore(cached.hasMore);
       setLoadedChatId(chatId);
+      setFirstItemIndex(100000);
       oldestDateRef.current = cached.oldestDate;
 
       // If cache is fresh enough, skip refetch entirely
@@ -169,6 +176,7 @@ export function useMessages(options: UseMessagesOptions): UseMessagesReturn {
     setMessages([]);
     setHasMore(false);
     setLoadedChatId(null);
+    setFirstItemIndex(100000);
     oldestDateRef.current = undefined;
 
     fetchMessages({ chatId, limit: initialLimit });
@@ -205,5 +213,6 @@ export function useMessages(options: UseMessagesOptions): UseMessagesReturn {
     refresh,
     setMessages,
     loadedChatId,
+    firstItemIndex,
   };
 }

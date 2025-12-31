@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { cn } from '@/lib/utils';
 import type { Message } from '@/types';
 import { Lightbox } from '@/components/lightbox';
@@ -18,7 +18,7 @@ type MessageBubbleProps = {
 };
 
 // Orchestrator component for rendering individual message bubbles.
-export function MessageBubble({
+export const MessageBubble = memo(function MessageBubble({
   message,
   showTimestamp,
   isGroupChat,
@@ -119,4 +119,4 @@ export function MessageBubble({
       )}
     </div>
   );
-}
+});
