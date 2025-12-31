@@ -29,11 +29,13 @@ import {
 import { registerGalleryHandlers } from "./gallery";
 import { startPhase, endStartup } from "./perf";
 import { shutdownThumbnailPool } from "./attachments/thumbnail-pool";
+import { shutdownDimensionPool } from "./attachments/dimension-pool";
 import {
   loadDimensionsCache,
   saveDimensionsCache,
   clearPendingSave,
 } from "./attachments/dimensions-cache";
+import { registerIndexingHandlers } from "./indexing";
 
 let mainWindow: BrowserWindow | null = null;
 let searchService: SearchIndexService | null = null;
@@ -138,6 +140,7 @@ function registerAllHandlers(): void {
   registerSearchHandlers();
   registerAttachmentHandlers();
   registerGalleryHandlers();
+  registerIndexingHandlers();
 }
 
 // Application lifecycle handlers
@@ -179,8 +182,9 @@ app.on("window-all-closed", () => {
 });
 
 app.on("quit", async () => {
-  // Shutdown thumbnail worker pool
+  // Shutdown worker pools
   await shutdownThumbnailPool();
+  await shutdownDimensionPool();
 
   // Save dimensions cache (cancel pending debounced save first)
   clearPendingSave();

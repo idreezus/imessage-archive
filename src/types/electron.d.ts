@@ -22,6 +22,15 @@ import type {
   AttachmentMetadata,
 } from './gallery';
 
+// Indexing progress type for media dimension extraction
+export type IndexingProgress = {
+  phase: 'scanning' | 'indexing' | 'complete' | 'error';
+  processed: number;
+  total: number;
+  currentFile?: string;
+  error?: string;
+};
+
 // Electron API exposed to renderer via preload script
 export type ElectronAPI = {
   // Conversation API
@@ -73,6 +82,13 @@ export type ElectronAPI = {
   downloadAttachment: (options: DownloadAttachmentOptions) => Promise<DownloadResult>;
   showInFinder: (localPath: string) => Promise<{ success: boolean; error?: string }>;
   shareAttachment: (localPath: string) => Promise<{ success: boolean; error?: string }>;
+
+  // Indexing API
+  getUnindexedCount: () => Promise<number>;
+  startIndexing: () => Promise<IndexingProgress>;
+  isIndexingInProgress: () => Promise<boolean>;
+  getIndexingProgress: () => Promise<IndexingProgress>;
+  onIndexingProgress: (callback: (progress: IndexingProgress) => void) => () => void;
 };
 
 // Extend Window interface with electronAPI

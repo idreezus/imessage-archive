@@ -123,6 +123,47 @@ const electronAPI = {
     ipcRenderer.invoke("attachment:get-dimensions-batch", { localPaths }) as Promise<
       Record<string, { width: number; height: number }>
     >,
+
+  // Indexing API
+  getUnindexedCount: () =>
+    ipcRenderer.invoke("indexing:get-unindexed-count") as Promise<number>,
+
+  startIndexing: () => ipcRenderer.invoke("indexing:start"),
+
+  isIndexingInProgress: () =>
+    ipcRenderer.invoke("indexing:is-in-progress") as Promise<boolean>,
+
+  getIndexingProgress: () => ipcRenderer.invoke("indexing:get-progress"),
+
+  // Subscribe to indexing progress updates (push from main process)
+  onIndexingProgress: (
+    callback: (progress: {
+      phase: "scanning" | "indexing" | "complete" | "error";
+      processed: number;
+      total: number;
+      currentFile?: string;
+      error?: string;
+    }) => void
+  ) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      progress: {
+        phase: "scanning" | "indexing" | "complete" | "error";
+        processed: number;
+        total: number;
+        currentFile?: string;
+        error?: string;
+      }
+    ) => {
+      callback(progress);
+    };
+    ipcRenderer.on("indexing:progress", handler);
+
+    // Return unsubscribe function
+    return () => {
+      ipcRenderer.removeListener("indexing:progress", handler);
+    };
+  },
 };
 
 // Expose API to renderer process securely
