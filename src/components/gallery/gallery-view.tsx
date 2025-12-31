@@ -14,6 +14,13 @@ import type {
   MonthGroup,
 } from '@/types/gallery';
 
+// Context type for VirtuosoGrid - passed to itemContent and custom components
+type GalleryGridContext = {
+  gridItems: GalleryGridItem[];
+  hasMore: boolean;
+  onThumbnailClick: (index: number) => void;
+};
+
 // Format month key to display label
 function formatMonthLabel(monthKey: string): string {
   const [year, month] = monthKey.split('-').map(Number);
@@ -85,8 +92,20 @@ function LoadingSkeleton() {
 
 // Scroll seek placeholder component - shown during fast scrolling
 const ScrollSeekPlaceholder = memo(function ScrollSeekPlaceholder() {
+  return <Skeleton className="w-full h-full rounded-lg" />;
+});
+
+// Footer component - extracted to avoid inline function anti-pattern
+const GalleryFooter = memo(function GalleryFooter({
+  context,
+}: {
+  context?: GalleryGridContext;
+}) {
+  if (!context?.hasMore) return null;
   return (
-    <div className="w-full h-full rounded-lg bg-muted/50 animate-pulse" />
+    <div className="col-span-full flex justify-center py-4">
+      <Skeleton className="h-4 w-24" />
+    </div>
   );
 });
 
@@ -271,14 +290,16 @@ export const GalleryView = memo(function GalleryView() {
           rangeChanged={handleRangeChanged}
           scrollSeekConfiguration={scrollSeekConfig}
           style={{ height: '100%' }}
+          context={{ gridItems, hasMore, onThumbnailClick: handleThumbnailClick }}
+          computeItemKey={(index, _data, ctx) => {
+            const item = ctx.gridItems[index];
+            return item.type === 'header'
+              ? `header-${item.monthKey}`
+              : `att-${item.data.rowid}`;
+          }}
           components={{
             ScrollSeekPlaceholder,
-            Footer: () =>
-              hasMore ? (
-                <div className="col-span-full flex justify-center py-4">
-                  <Skeleton className="h-4 w-24" />
-                </div>
-              ) : null,
+            Footer: GalleryFooter,
           }}
         />
       </div>
