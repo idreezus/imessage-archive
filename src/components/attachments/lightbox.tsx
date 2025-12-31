@@ -56,7 +56,6 @@ export const Lightbox = memo(function Lightbox({
       .finally(() => setIsLoading(false));
   }, [current?.localPath, isOpen]);
 
-
   // Auto-scroll to keep current thumbnail visible
   useEffect(() => {
     if (!hasMultiple) return;
@@ -134,9 +133,11 @@ export const Lightbox = memo(function Lightbox({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/95 flex flex-col">
-      {/* Top bar */}
-      <div className="shrink-0 flex items-center justify-end p-4">
+    // {/* Fullscreen overlay */}
+    <div className="fixed inset-0 z-50 bg-black/95 flex flex-col pb-lightbox-bottom-padding">
+      {/* Header */}
+      <div className="shrink-0 h-lightbox-header flex items-center justify-end px-lightbox-x-padding">
+        {/* Close button */}
         <Button
           variant="ghost"
           size="icon"
@@ -147,12 +148,12 @@ export const Lightbox = memo(function Lightbox({
         </Button>
       </div>
 
-      {/* Content - fills remaining space */}
+      {/* Content area */}
       <div
-        className="flex-1 flex items-center justify-center overflow-hidden relative px-4"
+        className="flex-1 min-h-0 flex items-center justify-center overflow-hidden relative px-lightbox-x-padding"
         onClick={onClose}
       >
-        {/* Previous button */}
+        {/* Nav: previous */}
         {hasMultiple && hasPrev && (
           <Button
             variant="ghost"
@@ -167,33 +168,37 @@ export const Lightbox = memo(function Lightbox({
           </Button>
         )}
 
-        {/* Media content */}
+        {/* Media container */}
         <div
-          className="max-w-[90vw] max-h-full flex items-center justify-center"
+          className="h-full max-w-[calc(100vw-var(--spacing-lightbox-x-padding)*2)] flex items-center justify-center"
           onClick={(e) => e.stopPropagation()}
         >
+          {/* Loading spinner */}
           {isLoading && (
             <div className="w-16 h-16 border-4 border-white/20 border-t-white rounded-full animate-spin" />
           )}
 
+          {/* Image */}
           {!isLoading && mediaUrl && current?.type === 'image' && (
             <img
               src={mediaUrl}
               alt={current.transferName || 'Image'}
-              className="max-w-full max-h-full object-contain"
+              className="max-w-full max-h-full w-auto h-auto"
             />
           )}
 
+          {/* Video */}
           {!isLoading && mediaUrl && current?.type === 'video' && (
             <video
               ref={videoRef}
               src={mediaUrl}
               controls
               autoPlay
-              className="max-w-full max-h-full"
+              className="max-w-full max-h-full w-auto h-auto"
             />
           )}
 
+          {/* Error state */}
           {!isLoading && !mediaUrl && (
             <div className="text-white text-center">
               <p className="text-lg">Unable to load media</p>
@@ -204,7 +209,7 @@ export const Lightbox = memo(function Lightbox({
           )}
         </div>
 
-        {/* Next button */}
+        {/* Nav: next */}
         {hasMultiple && hasNext && (
           <Button
             variant="ghost"
@@ -220,9 +225,9 @@ export const Lightbox = memo(function Lightbox({
         )}
       </div>
 
-      {/* Toolbar */}
+      {/* Actions toolbar */}
       {showToolbar && current && (
-        <div className="shrink-0 py-2">
+        <div className="shrink-0 h-lightbox-toolbar flex items-center justify-center">
           <LightboxToolbar
             attachment={current}
             onToggleInfo={() => setIsInfoOpen(!isInfoOpen)}
@@ -231,14 +236,13 @@ export const Lightbox = memo(function Lightbox({
         </div>
       )}
 
-      {/* Thumbnail filmstrip */}
+      {/* Filmstrip */}
       {hasMultiple && (
         <div
-          className="shrink-0 flex gap-1.5 p-2 bg-black/60 backdrop-blur-sm overflow-x-auto scrollbar-hide"
+          className="shrink-0 h-lightbox-filmstrip flex items-center gap-1.5 px-2 overflow-x-auto scrollbar-hide"
           onClick={(e) => e.stopPropagation()}
         >
           {attachments.map((attachment, index) => {
-            // Synchronous URL construction - no async, no IPC
             const isMedia =
               attachment.type === 'image' || attachment.type === 'video';
             const thumbnailUrl =
@@ -248,6 +252,7 @@ export const Lightbox = memo(function Lightbox({
             const isActive = index === currentIndex;
 
             return (
+              // {/* Thumbnail button */}
               <button
                 key={attachment.rowid}
                 ref={(el) => {
@@ -255,7 +260,7 @@ export const Lightbox = memo(function Lightbox({
                 }}
                 onClick={() => setCurrentIndex(index)}
                 className={cn(
-                  'relative shrink-0 w-14 h-14 rounded-lg overflow-hidden transition-all',
+                  'relative shrink-0 size-lightbox-thumbnail rounded-lg overflow-hidden transition-all',
                   isActive
                     ? 'ring-2 ring-white opacity-100'
                     : 'opacity-50 hover:opacity-75'
@@ -263,6 +268,7 @@ export const Lightbox = memo(function Lightbox({
               >
                 {thumbnailUrl ? (
                   <>
+                    {/* Thumbnail image */}
                     <img
                       src={thumbnailUrl}
                       className="w-full h-full object-cover"
@@ -276,6 +282,7 @@ export const Lightbox = memo(function Lightbox({
                         );
                       }}
                     />
+                    {/* Video badge */}
                     {attachment.type === 'video' && (
                       <div className="absolute inset-0 flex items-center justify-center">
                         <Play className="size-4 text-white drop-shadow" />
@@ -283,6 +290,7 @@ export const Lightbox = memo(function Lightbox({
                     )}
                   </>
                 ) : (
+                  // {/* Fallback placeholder */}
                   <div className="w-full h-full bg-white/10 flex items-center justify-center">
                     <Play className="size-4 text-white/50" />
                   </div>
@@ -293,7 +301,7 @@ export const Lightbox = memo(function Lightbox({
         </div>
       )}
 
-      {/* Info Sheet */}
+      {/* Info sheet */}
       <AttachmentInfoSheet
         attachment={current}
         isOpen={isInfoOpen}
