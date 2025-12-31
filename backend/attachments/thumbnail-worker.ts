@@ -1,9 +1,4 @@
-/**
- * Thumbnail Worker
- *
- * Runs in a worker thread to process thumbnails without blocking the main thread.
- * Handles: image resizing, HEIC conversion, video frame extraction.
- */
+// Worker thread for thumbnail generation (runs off main thread)
 
 import { parentPort } from "worker_threads";
 import sharp from "sharp";
@@ -17,7 +12,6 @@ import heicConvert from "heic-convert";
 
 const execFileAsync = promisify(execFile);
 
-// Task types that can be processed by this worker
 export type ThumbnailTask =
   | {
       type: "image";
@@ -29,18 +23,19 @@ export type ThumbnailTask =
       type: "video";
       filePath: string;
       size: number;
+    }
+  | {
+      type: "heic-full";
+      buffer: Buffer;
+      quality: number;
     };
 
-// Message format received from the pool
 interface TaskMessage {
   type: "task";
   taskId: string;
   data: ThumbnailTask;
 }
 
-/**
- * Process an image thumbnail
- */
 async function processImageThumbnail(
   buffer: Buffer,
   size: number,
@@ -48,7 +43,6 @@ async function processImageThumbnail(
 ): Promise<Buffer> {
   let inputBuffer = buffer;
 
-  // Convert HEIC to JPEG first if needed
   if (isHeic) {
     inputBuffer = await heicConvert({
       buffer: inputBuffer,
@@ -57,44 +51,47 @@ async function processImageThumbnail(
     });
   }
 
-  // Process with sharp
   return sharp(inputBuffer)
-    .rotate() // Auto-orient from EXIF
+    .rotate()
     .resize(size, size, { fit: "cover", position: "center" })
     .webp({ quality: 80 })
     .toBuffer();
 }
 
-/**
- * Process a video thumbnail by extracting a frame with ffmpeg
- */
+async function processHeicFull(buffer: Buffer, quality: number): Promise<Buffer> {
+  return heicConvert({
+    buffer,
+    format: "JPEG",
+    quality,
+  });
+}
+
 async function processVideoThumbnail(
   filePath: string,
   size: number
 ): Promise<Buffer> {
-  // Create unique temp file
   const tempFile = path.join(
     os.tmpdir(),
     `thumb_${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`
   );
 
   try {
-    // Extract frame at 1 second (or first frame if shorter)
+    // Try extracting frame at 1 second
     try {
       await execFileAsync("ffmpeg", [
         "-i",
         filePath,
         "-ss",
-        "00:00:01", // Seek to 1 second
+        "00:00:01",
         "-vframes",
-        "1", // Extract 1 frame
+        "1",
         "-vf",
         `scale=${size}:${size}:force_original_aspect_ratio=increase,crop=${size}:${size}`,
-        "-y", // Overwrite if exists
+        "-y",
         tempFile,
       ]);
     } catch {
-      // If extraction at 1s fails (video too short), try first frame
+      // Video too short, try first frame
       await execFileAsync("ffmpeg", [
         "-i",
         filePath,
@@ -107,30 +104,25 @@ async function processVideoThumbnail(
       ]);
     }
 
-    // Read and convert to WebP with sharp
     const buffer = await sharp(tempFile).webp({ quality: 80 }).toBuffer();
-
     return buffer;
   } finally {
-    // Cleanup temp file
     fs.promises.unlink(tempFile).catch(() => {});
   }
 }
 
-/**
- * Process incoming task
- */
 async function processTask(task: ThumbnailTask): Promise<Buffer> {
   if (task.type === "image") {
     return processImageThumbnail(task.buffer, task.size, task.isHeic);
   } else if (task.type === "video") {
     return processVideoThumbnail(task.filePath, task.size);
+  } else if (task.type === "heic-full") {
+    return processHeicFull(task.buffer, task.quality);
   } else {
     throw new Error(`Unknown task type: ${(task as ThumbnailTask).type}`);
   }
 }
 
-// Listen for messages from the main thread
 parentPort?.on("message", async (msg: TaskMessage) => {
   if (msg.type !== "task") return;
 
@@ -155,5 +147,4 @@ parentPort?.on("message", async (msg: TaskMessage) => {
   }
 });
 
-// Signal that worker is ready
 parentPort?.postMessage({ type: "ready" });

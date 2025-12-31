@@ -1,7 +1,7 @@
 import { memo, useState, useCallback, useMemo } from 'react';
 import type { Attachment } from '@/types';
 import { cn } from '@/lib/utils';
-import { getFullUrl, markUrlFailed } from '@/lib/attachment-url';
+import { getPreviewUrl, markUrlFailed } from '@/lib/attachment-url';
 import { UnavailableAttachment } from './unavailable-attachment';
 import { AttachmentContextMenu } from './attachment-context-menu';
 
@@ -55,8 +55,9 @@ export const ImageAttachment = memo(function ImageAttachment({
   const [error, setError] = useState(false);
   const [naturalDimensions, setNaturalDimensions] = useState<{ width: number; height: number } | null>(null);
 
-  // Synchronous URL construction - no async, no IPC
-  const imageUrl = getFullUrl(attachment.localPath);
+  // Use preview-size (720px) for message view - much smaller than full resolution
+  // Full resolution only loads when opening lightbox
+  const imageUrl = getPreviewUrl(attachment.localPath);
 
   // Calculate placeholder dimensions - use a reasonable default aspect ratio
   const placeholderDimensions = useMemo(() => ({

@@ -1,5 +1,6 @@
 import { memo, useState, useEffect, useCallback, useRef } from 'react';
 import type { Attachment } from '@/types';
+import { getFullUrl } from '@/lib/attachment-url';
 import { LightboxHeader } from './lightbox-header';
 import { LightboxMedia } from './lightbox-media';
 import { LightboxNavigation } from './lightbox-navigation';
@@ -15,6 +16,7 @@ type LightboxProps = {
   showToolbar?: boolean;
 };
 
+// Fullscreen media viewer with navigation and filmstrip
 export const Lightbox = memo(function Lightbox({
   attachments,
   initialIndex,
@@ -33,23 +35,20 @@ export const Lightbox = memo(function Lightbox({
   const hasPrev = currentIndex > 0;
   const hasNext = currentIndex < attachments.length - 1;
 
-  // Reset index when initialIndex changes
   useEffect(() => {
     setCurrentIndex(initialIndex);
   }, [initialIndex]);
 
-  // Load current media URL
   useEffect(() => {
     if (!current?.localPath || !isOpen) {
       setMediaUrl(null);
+      setIsLoading(false);
       return;
     }
 
-    setIsLoading(true);
-    window.electronAPI
-      .getAttachmentFileUrl(current.localPath)
-      .then((url) => setMediaUrl(url))
-      .finally(() => setIsLoading(false));
+    const url = getFullUrl(current.localPath);
+    setMediaUrl(url);
+    setIsLoading(false);
   }, [current?.localPath, isOpen]);
 
   const goToPrev = useCallback(() => {
@@ -74,7 +73,6 @@ export const Lightbox = memo(function Lightbox({
     }
   }, []);
 
-  // Keyboard navigation
   useEffect(() => {
     if (!isOpen) return;
 
@@ -100,7 +98,6 @@ export const Lightbox = memo(function Lightbox({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose, goToPrev, goToNext, toggleVideoPlayback]);
 
-  // Prevent body scroll when lightbox is open
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';

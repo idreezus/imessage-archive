@@ -1,14 +1,4 @@
-/**
- * Reusable Worker Pool
- *
- * A generic worker thread pool for CPU-intensive operations.
- * Features:
- * - Configurable concurrency (number of workers)
- * - Priority queue (lower priority value = processed first)
- * - Task timeouts
- * - Idle worker termination
- * - Graceful shutdown
- */
+// Generic worker thread pool for CPU-intensive operations
 
 import { Worker } from "worker_threads";
 import * as os from "os";
@@ -37,7 +27,6 @@ export class WorkerPool<TTask, TResult> {
   private isShuttingDown = false;
   private idleCheckInterval: NodeJS.Timeout | null = null;
 
-  // Statistics
   private totalProcessed = 0;
   private totalFailed = 0;
   private totalTimedOut = 0;
@@ -48,18 +37,12 @@ export class WorkerPool<TTask, TResult> {
     this.taskTimeout = options.taskTimeout ?? 30000;
     this.idleTimeout = options.idleTimeout ?? 60000;
 
-    // Start idle timeout checker if enabled
     if (this.idleTimeout > 0) {
       this.startIdleChecker();
     }
   }
 
-  /**
-   * Execute a task in the worker pool
-   * @param data Task data to send to worker
-   * @param priority Priority (lower = higher priority, default: 0)
-   * @returns Promise resolving to task result
-   */
+  // Execute a task in the worker pool (lower priority value = higher priority)
   exec(data: TTask, priority = 0): Promise<TResult> {
     if (this.isShuttingDown) {
       return Promise.reject(new Error("Worker pool is shutting down"));
@@ -77,17 +60,11 @@ export class WorkerPool<TTask, TResult> {
         queuedAt: Date.now(),
       };
 
-      // Add to queue in priority order
       this.insertByPriority(task);
-
-      // Try to dispatch immediately
       this.dispatchNext();
     });
   }
 
-  /**
-   * Get current pool statistics
-   */
   getStats(): PoolStats {
     const activeWorkers = this.workers.filter(
       (w) => w.currentTaskId !== null
@@ -106,20 +83,15 @@ export class WorkerPool<TTask, TResult> {
     };
   }
 
-  /**
-   * Gracefully terminate all workers
-   * Waits for in-flight tasks to complete (max 5s)
-   */
+  // Gracefully terminate all workers, waiting up to 5s for in-flight tasks
   async terminate(): Promise<void> {
     this.isShuttingDown = true;
 
-    // Clear idle checker
     if (this.idleCheckInterval) {
       clearInterval(this.idleCheckInterval);
       this.idleCheckInterval = null;
     }
 
-    // Wait for all in-flight tasks (max 5s)
     if (this.pendingTasks.size > 0) {
       await new Promise<void>((resolve) => {
         const checkInterval = setInterval(() => {
@@ -129,7 +101,6 @@ export class WorkerPool<TTask, TResult> {
           }
         }, 100);
 
-        // Force resolve after 5s
         setTimeout(() => {
           clearInterval(checkInterval);
           resolve();
@@ -137,7 +108,6 @@ export class WorkerPool<TTask, TResult> {
       });
     }
 
-    // Terminate all workers
     for (const workerInfo of this.workers) {
       try {
         await workerInfo.worker.terminate();
@@ -148,7 +118,6 @@ export class WorkerPool<TTask, TResult> {
 
     this.workers = [];
 
-    // Reject any remaining pending tasks
     for (const [, { task }] of this.pendingTasks) {
       if (task.timeoutId) {
         clearTimeout(task.timeoutId);
@@ -157,18 +126,14 @@ export class WorkerPool<TTask, TResult> {
     }
     this.pendingTasks.clear();
 
-    // Reject any remaining queued tasks
     for (const task of this.queue) {
       task.reject(new Error("Worker pool terminated"));
     }
     this.queue = [];
   }
 
-  /**
-   * Insert task into queue maintaining priority order
-   */
+  // Insert task maintaining priority order (stable sort)
   private insertByPriority(task: QueuedTask<TTask>): void {
-    // Find insertion point (stable sort - new tasks go after existing same-priority tasks)
     let insertIndex = this.queue.length;
     for (let i = 0; i < this.queue.length; i++) {
       if (this.queue[i].priority > task.priority) {
@@ -179,43 +144,33 @@ export class WorkerPool<TTask, TResult> {
     this.queue.splice(insertIndex, 0, task);
   }
 
-  /**
-   * Try to dispatch the next task from queue
-   */
   private dispatchNext(): void {
     if (this.queue.length === 0) return;
     if (this.isShuttingDown) return;
 
-    // Find an idle worker
     let workerInfo = this.workers.find((w) => w.currentTaskId === null);
 
-    // Create new worker if none idle and under limit
     if (!workerInfo && this.workers.length < this.maxWorkers) {
       workerInfo = this.createWorker();
     }
 
-    if (!workerInfo) return; // All workers busy
+    if (!workerInfo) return;
 
-    // Dequeue next task
     const task = this.queue.shift();
     if (!task) return;
 
-    // Assign task to worker
     workerInfo.currentTaskId = task.id;
     workerInfo.taskStartedAt = Date.now();
     workerInfo.idleSince = null;
 
-    // Track pending task
     this.pendingTasks.set(task.id, { task, workerInfo });
 
-    // Set up timeout
     if (this.taskTimeout > 0) {
       task.timeoutId = setTimeout(() => {
         this.handleTaskTimeout(task.id);
       }, this.taskTimeout);
     }
 
-    // Send task to worker
     const message: WorkerTaskMessage<TTask> = {
       type: "task",
       taskId: task.id,
@@ -225,9 +180,6 @@ export class WorkerPool<TTask, TResult> {
     workerInfo.worker.postMessage(message);
   }
 
-  /**
-   * Create a new worker thread
-   */
   private createWorker(): WorkerInfo {
     const worker = new Worker(this.workerPath);
 
@@ -238,17 +190,14 @@ export class WorkerPool<TTask, TResult> {
       idleSince: Date.now(),
     };
 
-    // Handle messages from worker
     worker.on("message", (message: WorkerMessage) => {
       this.handleWorkerMessage(workerInfo, message);
     });
 
-    // Handle worker errors
     worker.on("error", (error: Error) => {
       this.handleWorkerError(workerInfo, error);
     });
 
-    // Handle worker exit
     worker.on("exit", (code: number) => {
       this.handleWorkerExit(workerInfo, code);
     });
@@ -257,15 +206,11 @@ export class WorkerPool<TTask, TResult> {
     return workerInfo;
   }
 
-  /**
-   * Handle message from worker
-   */
   private handleWorkerMessage(
     workerInfo: WorkerInfo,
     message: WorkerMessage
   ): void {
     if (message.type === "ready") {
-      // Worker initialized, try to dispatch
       this.dispatchNext();
       return;
     }
@@ -273,7 +218,6 @@ export class WorkerPool<TTask, TResult> {
     const taskId = message.taskId;
     if (!taskId) return;
 
-    // Get pending task
     const pending = this.pendingTasks.get(taskId);
     if (!pending) {
       console.warn(`[WorkerPool] Received message for unknown task: ${taskId}`);
@@ -282,21 +226,17 @@ export class WorkerPool<TTask, TResult> {
 
     const { task } = pending;
 
-    // Clear timeout
     if (task.timeoutId) {
       clearTimeout(task.timeoutId);
       task.timeoutId = undefined;
     }
 
-    // Remove from pending
     this.pendingTasks.delete(taskId);
 
-    // Mark worker as idle
     workerInfo.currentTaskId = null;
     workerInfo.taskStartedAt = null;
     workerInfo.idleSince = Date.now();
 
-    // Resolve or reject the promise
     if (message.type === "result") {
       this.totalProcessed++;
       task.resolve(message.data);
@@ -309,17 +249,12 @@ export class WorkerPool<TTask, TResult> {
       task.reject(error);
     }
 
-    // Dispatch next task
     this.dispatchNext();
   }
 
-  /**
-   * Handle worker error
-   */
   private handleWorkerError(workerInfo: WorkerInfo, error: Error): void {
     console.error("[WorkerPool] Worker error:", error);
 
-    // Fail any current task
     if (workerInfo.currentTaskId) {
       const pending = this.pendingTasks.get(workerInfo.currentTaskId);
       if (pending) {
@@ -332,24 +267,18 @@ export class WorkerPool<TTask, TResult> {
       }
     }
 
-    // Remove and replace worker
     this.removeWorker(workerInfo);
 
-    // Dispatch queued tasks
     if (!this.isShuttingDown && this.queue.length > 0) {
       this.dispatchNext();
     }
   }
 
-  /**
-   * Handle worker exit
-   */
   private handleWorkerExit(workerInfo: WorkerInfo, code: number): void {
     if (code !== 0 && !this.isShuttingDown) {
       console.warn(`[WorkerPool] Worker exited with code ${code}`);
     }
 
-    // Fail any current task
     if (workerInfo.currentTaskId) {
       const pending = this.pendingTasks.get(workerInfo.currentTaskId);
       if (pending) {
@@ -364,15 +293,11 @@ export class WorkerPool<TTask, TResult> {
 
     this.removeWorker(workerInfo);
 
-    // Dispatch queued tasks
     if (!this.isShuttingDown && this.queue.length > 0) {
       this.dispatchNext();
     }
   }
 
-  /**
-   * Handle task timeout
-   */
   private handleTaskTimeout(taskId: string): void {
     const pending = this.pendingTasks.get(taskId);
     if (!pending) return;
@@ -382,21 +307,16 @@ export class WorkerPool<TTask, TResult> {
     this.totalTimedOut++;
     this.pendingTasks.delete(taskId);
 
-    // Reject the task
     task.reject(new Error(`Task ${taskId} timed out after ${this.taskTimeout}ms`));
 
-    // Terminate the worker (it's stuck)
+    // Terminate stuck worker
     this.removeWorker(workerInfo);
 
-    // Create a new worker if we have more tasks
     if (!this.isShuttingDown && this.queue.length > 0) {
       this.dispatchNext();
     }
   }
 
-  /**
-   * Remove a worker from the pool
-   */
   private removeWorker(workerInfo: WorkerInfo): void {
     const index = this.workers.indexOf(workerInfo);
     if (index !== -1) {
@@ -410,9 +330,6 @@ export class WorkerPool<TTask, TResult> {
     }
   }
 
-  /**
-   * Start periodic checker to terminate idle workers
-   */
   private startIdleChecker(): void {
     this.idleCheckInterval = setInterval(() => {
       if (this.isShuttingDown) {
@@ -426,17 +343,17 @@ export class WorkerPool<TTask, TResult> {
       const now = Date.now();
 
       for (const workerInfo of [...this.workers]) {
+        // Keep at least one worker
         if (
           workerInfo.idleSince !== null &&
           now - workerInfo.idleSince > this.idleTimeout &&
-          this.workers.length > 1 // Keep at least one worker
+          this.workers.length > 1
         ) {
           this.removeWorker(workerInfo);
         }
       }
-    }, 10000); // Check every 10 seconds
+    }, 10000);
 
-    // Don't prevent process exit
     this.idleCheckInterval.unref();
   }
 }

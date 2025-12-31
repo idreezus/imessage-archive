@@ -46,6 +46,7 @@ src/               → React renderer (ESM, compiles to dist/)
 ```
 
 **Key constraints:**
+
 - Backend uses CommonJS (`backend/tsconfig.json` → `dist-app/`)
 - Renderer uses ESM with `@/` path alias (`src/*`)
 - Database is read-only - no mutations
@@ -54,20 +55,23 @@ src/               → React renderer (ESM, compiles to dist/)
 ## IPC Pattern
 
 Backend handlers registered in domain `handlers.ts` files:
+
 ```typescript
 // backend/conversations/handlers.ts
 ipcMain.handle("db:get-conversations", async (_, options) => { ... })
 ```
 
 Frontend calls via `window.electronAPI`:
+
 ```typescript
 // Defined in backend/preload.ts, typed in src/types/electron.d.ts
-const result = await window.electronAPI.getConversations({ limit: 50 })
+const result = await window.electronAPI.getConversations({ limit: 50 });
 ```
 
 ## Database
 
 Reads from `data/chat.db` (an iMessage database copy). Apple timestamps require conversion:
+
 ```typescript
 // Apple: nanoseconds since 2001-01-01
 // JS: milliseconds since 1970-01-01
@@ -76,6 +80,7 @@ const jsTimestamp = Math.floor(appleDate / 1_000_000) + APPLE_EPOCH_OFFSET_MS;
 ```
 
 Setup (both gitignored):
+
 ```bash
 cp ~/Library/Messages/chat.db ./data/chat.db
 cp -r ~/Library/Messages/Attachments ./data/attachments
@@ -84,3 +89,13 @@ cp -r ~/Library/Messages/Attachments ./data/attachments
 ## Attachments
 
 Uses custom `attachment://` protocol to serve media files from `data/attachments/`. Protocol registered in `backend/attachments/protocol.ts`.
+
+## Commenting Guidelines
+
+- **MUST** place single-line comments above functions/components describing their purpose and context
+- **MUST** use sentence case for comments without trailing periods
+- **SHOULD** explain "why" or constraints in inline comments, not obvious "how"
+- **SHOULD** use JSX comments `{/* ... */}` sparingly to label major structural sections
+- **SHOULD** add inline comments on type/prop definitions when behavior is non-obvious or conditional
+- **NEVER** add periods at the end of comments
+- **NEVER** comment obvious code - only explain non-obvious behavior, edge cases, or important context

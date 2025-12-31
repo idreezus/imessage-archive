@@ -1,8 +1,8 @@
-import { memo, useState, useCallback, useMemo, useRef } from 'react';
+import { memo, useState, useCallback, useMemo } from 'react';
 import { Play } from 'lucide-react';
 import type { Attachment } from '@/types';
 import { cn } from '@/lib/utils';
-import { getFullUrl, markUrlFailed } from '@/lib/attachment-url';
+import { getPreviewUrl, markUrlFailed } from '@/lib/attachment-url';
 import { UnavailableAttachment } from './unavailable-attachment';
 import { AttachmentContextMenu } from './attachment-context-menu';
 
@@ -52,13 +52,13 @@ export const VideoAttachment = memo(function VideoAttachment({
   maxWidth = MAX_WIDTH,
   maxHeight = MAX_HEIGHT,
 }: VideoAttachmentProps) {
-  const videoRef = useRef<HTMLVideoElement>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
   const [naturalDimensions, setNaturalDimensions] = useState<{ width: number; height: number } | null>(null);
 
-  // Synchronous URL construction - no async, no IPC
-  const videoUrl = getFullUrl(attachment.localPath);
+  // Use preview-size thumbnail instead of loading full video
+  // Video only plays when opened in lightbox
+  const thumbnailUrl = getPreviewUrl(attachment.localPath);
 
   // Calculate placeholder dimensions - use a reasonable default aspect ratio (16:9)
   const placeholderDimensions = useMemo(() => ({
@@ -77,26 +77,24 @@ export const VideoAttachment = memo(function VideoAttachment({
     );
   }, [naturalDimensions, maxWidth, maxHeight]);
 
-  const handleLoadedMetadata = useCallback(() => {
-    const video = videoRef.current;
-    if (video) {
-      setNaturalDimensions({
-        width: video.videoWidth,
-        height: video.videoHeight,
-      });
-    }
+  const handleLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget;
+    setNaturalDimensions({
+      width: img.naturalWidth,
+      height: img.naturalHeight,
+    });
     setIsLoading(false);
   }, []);
 
   const handleError = useCallback(() => {
-    if (videoUrl) {
-      markUrlFailed(videoUrl);
+    if (thumbnailUrl) {
+      markUrlFailed(thumbnailUrl);
     }
     setError(true);
     setIsLoading(false);
-  }, [videoUrl]);
+  }, [thumbnailUrl]);
 
-  if (error || !videoUrl) {
+  if (error || !thumbnailUrl) {
     return <UnavailableAttachment attachment={attachment} />;
   }
 
@@ -119,15 +117,14 @@ export const VideoAttachment = memo(function VideoAttachment({
         {isLoading && (
           <div className="absolute inset-0 animate-pulse bg-muted rounded-2xl" />
         )}
-        <video
-          ref={videoRef}
-          src={videoUrl}
+        <img
+          src={thumbnailUrl}
+          alt={attachment.transferName || 'Video'}
           className={cn(
-            'w-full h-full object-contain transition-opacity duration-200',
+            'w-full h-full object-cover transition-opacity duration-200',
             isLoading ? 'opacity-0' : 'opacity-100'
           )}
-          preload="metadata"
-          onLoadedMetadata={handleLoadedMetadata}
+          onLoad={handleLoad}
           onError={handleError}
         />
         <div className="absolute inset-0 flex items-center justify-center bg-black/30">

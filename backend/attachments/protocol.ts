@@ -1,39 +1,36 @@
+// Custom protocol for serving attachments with thumbnail generation
+
 import { protocol, net } from "electron";
 import * as path from "path";
 import * as fs from "fs";
 import { pathToFileURL } from "url";
-// @ts-expect-error - heic-convert has no type definitions
-import heicConvert from "heic-convert";
 import { getAttachmentsBasePath } from "./paths";
 import { getCacheKey, readFromCache, writeToCache } from "./thumbnail-cache";
 import { isVideoFile } from "./thumbnail-service";
 import {
   generateImageThumbnailInWorker,
   generateVideoThumbnailInWorker,
+  convertHeicInWorker,
 } from "./thumbnail-pool";
 
-// MUST be called before app.whenReady() - enables video/audio streaming
-// We use "file/" prefix in URLs to prevent numeric path normalization (42 -> 0.0.0.42)
+// Must be called before app.whenReady()
 protocol.registerSchemesAsPrivileged([
   {
     scheme: "attachment",
     privileges: {
-      standard: true, // Required for proper URL parsing with video
-      secure: true, // Treat as secure origin
-      supportFetchAPI: true, // Allow fetch API
-      stream: true, // CRITICAL: Enable video/audio streaming
-      bypassCSP: true, // Bypass CSP for local files
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      stream: true,
+      bypassCSP: true,
     },
   },
 ]);
 
-// Register custom protocol for serving attachments.
-// Must be called after app.whenReady().
+// Register custom protocol for serving attachments
 export function registerAttachmentProtocol(): void {
   protocol.handle("attachment", async (request) => {
     try {
-      // Parse URL to extract path and query parameters
-      // URL format: attachment://file/42/02/GUID/file.jpg?size=240
       const url = new URL(request.url);
       let relativePath = decodeURIComponent(url.pathname);
 
@@ -45,22 +42,19 @@ export function registerAttachmentProtocol(): void {
         relativePath = relativePath.slice("file/".length);
       }
 
-      // Parse thumbnail size parameter
       const sizeParam = url.searchParams.get("size");
       const size = sizeParam ? parseInt(sizeParam, 10) : null;
 
       const basePath = getAttachmentsBasePath();
       const fullPath = path.join(basePath, relativePath);
 
-      // Security: Ensure resolved path is within attachments directory
+      // Prevent path traversal
       const resolvedPath = path.resolve(fullPath);
       const resolvedBase = path.resolve(basePath);
-
       if (!resolvedPath.startsWith(resolvedBase)) {
         return new Response("Forbidden", { status: 403 });
       }
 
-      // Check file exists
       try {
         await fs.promises.access(resolvedPath, fs.constants.R_OK);
       } catch {
@@ -69,29 +63,20 @@ export function registerAttachmentProtocol(): void {
 
       const ext = path.extname(resolvedPath).toLowerCase();
 
-      // Handle thumbnail generation if size parameter is provided
+      // Thumbnail generation
       if (size && size > 0 && size <= 1024) {
         try {
           const cacheKey = getCacheKey(relativePath, size);
-
-          // Check cache first
           let thumbnail = await readFromCache(cacheKey);
 
           if (!thumbnail) {
-            // Generate thumbnail in worker thread (non-blocking)
             if (isVideoFile(ext)) {
-              // Extract frame from video in worker
               thumbnail = await generateVideoThumbnailInWorker(resolvedPath, size);
             } else {
-              // Read image file
               const inputBuffer = await fs.promises.readFile(resolvedPath);
               const isHeic = ext === ".heic" || ext === ".heif";
-
-              // Generate thumbnail in worker (handles HEIC conversion internally)
               thumbnail = await generateImageThumbnailInWorker(inputBuffer, size, isHeic);
             }
-
-            // Cache the result
             await writeToCache(cacheKey, thumbnail);
           }
 
@@ -103,19 +88,14 @@ export function registerAttachmentProtocol(): void {
           });
         } catch (thumbnailError) {
           console.error("Thumbnail generation failed:", thumbnailError);
-          // Fall through to serve original file
         }
       }
 
-      // Handle HEIC conversion to JPEG for browser compatibility (full file)
+      // HEIC conversion for browser compatibility
       if (ext === ".heic" || ext === ".heif") {
         try {
           const inputBuffer = await fs.promises.readFile(resolvedPath);
-          const outputBuffer = await heicConvert({
-            buffer: inputBuffer,
-            format: "JPEG",
-            quality: 0.9,
-          });
+          const outputBuffer = await convertHeicInWorker(inputBuffer, 0.9);
           return new Response(outputBuffer, {
             headers: { "Content-Type": "image/jpeg" },
           });
@@ -125,8 +105,7 @@ export function registerAttachmentProtocol(): void {
         }
       }
 
-      // Use net.fetch - handles range requests automatically for video/audio
-      // Requires: standard: true + stream: true in registerSchemesAsPrivileged
+      // Serve original file with streaming support
       return net.fetch(pathToFileURL(resolvedPath).toString());
     } catch (error) {
       console.error("Protocol handler error:", error);
