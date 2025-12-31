@@ -3,6 +3,7 @@ import * as fs from "fs";
 import { dialog, shell } from "electron";
 import { getAttachmentsBasePath } from "./paths";
 import { handleWithTiming } from "../perf";
+import { getBatch } from "./dimensions-cache";
 
 type DownloadAttachmentOptions = {
   localPath: string;
@@ -139,6 +140,14 @@ export function registerAttachmentHandlers(): void {
       }
 
       return { success: true };
+    }
+  );
+
+  // Get cached dimensions for attachments (used to prevent layout shift)
+  handleWithTiming(
+    "attachment:get-dimensions-batch",
+    async (_event, { localPaths }: { localPaths: string[] }) => {
+      return getBatch(localPaths);
     }
   );
 }

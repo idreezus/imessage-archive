@@ -29,6 +29,11 @@ import {
 import { registerGalleryHandlers } from "./gallery";
 import { startPhase, endStartup } from "./perf";
 import { shutdownThumbnailPool } from "./attachments/thumbnail-pool";
+import {
+  loadDimensionsCache,
+  saveDimensionsCache,
+  clearPendingSave,
+} from "./attachments/dimensions-cache";
 
 let mainWindow: BrowserWindow | null = null;
 let searchService: SearchIndexService | null = null;
@@ -136,9 +141,12 @@ function registerAllHandlers(): void {
 }
 
 // Application lifecycle handlers
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   startPhase("registerAttachmentProtocol");
   registerAttachmentProtocol();
+
+  // Load cached dimensions for layout shift prevention
+  await loadDimensionsCache();
 
   startPhase("initializeDatabase");
   initializeDatabase();
@@ -173,6 +181,10 @@ app.on("window-all-closed", () => {
 app.on("quit", async () => {
   // Shutdown thumbnail worker pool
   await shutdownThumbnailPool();
+
+  // Save dimensions cache (cancel pending debounced save first)
+  clearPendingSave();
+  await saveDimensionsCache();
 
   if (searchService) {
     searchService.close();

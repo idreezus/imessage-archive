@@ -3,9 +3,10 @@
 import * as path from "path";
 import * as os from "os";
 import { WorkerPool } from "../lib/worker-pool";
-import type { ThumbnailTask } from "./thumbnail-worker";
+import type { ThumbnailTask, ThumbnailResult } from "./thumbnail-worker";
 
-let pool: WorkerPool<ThumbnailTask, Buffer> | null = null;
+// Pool uses union type since different tasks return different result types
+let pool: WorkerPool<ThumbnailTask, Buffer | ThumbnailResult> | null = null;
 
 const POOL_CONFIG = {
   maxWorkers: Math.max(2, os.cpus().length - 2),
@@ -13,9 +14,12 @@ const POOL_CONFIG = {
   idleTimeout: 120000,
 };
 
-export function getThumbnailPool(): WorkerPool<ThumbnailTask, Buffer> {
+export function getThumbnailPool(): WorkerPool<
+  ThumbnailTask,
+  Buffer | ThumbnailResult
+> {
   if (!pool) {
-    pool = new WorkerPool<ThumbnailTask, Buffer>({
+    pool = new WorkerPool<ThumbnailTask, Buffer | ThumbnailResult>({
       workerPath: path.join(__dirname, "thumbnail-worker.js"),
       ...POOL_CONFIG,
     });
@@ -27,31 +31,34 @@ export async function generateImageThumbnailInWorker(
   buffer: Buffer,
   size: number,
   isHeic: boolean
-): Promise<Buffer> {
-  return getThumbnailPool().exec(
+): Promise<ThumbnailResult> {
+  const result = await getThumbnailPool().exec(
     { type: "image", buffer, size, isHeic },
     1 // Higher priority than videos
   );
+  return result as ThumbnailResult;
 }
 
 export async function generateVideoThumbnailInWorker(
   filePath: string,
   size: number
-): Promise<Buffer> {
-  return getThumbnailPool().exec(
+): Promise<ThumbnailResult> {
+  const result = await getThumbnailPool().exec(
     { type: "video", filePath, size },
     10 // Lower priority - videos take longer
   );
+  return result as ThumbnailResult;
 }
 
 export async function convertHeicInWorker(
   buffer: Buffer,
   quality: number = 0.9
 ): Promise<Buffer> {
-  return getThumbnailPool().exec(
+  const result = await getThumbnailPool().exec(
     { type: "heic-full", buffer, quality },
     5 // Medium priority
   );
+  return result as Buffer;
 }
 
 export function getThumbnailPoolStats() {

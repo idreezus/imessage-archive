@@ -2,6 +2,7 @@ import { memo } from 'react';
 import type { Attachment } from '@/types';
 import { AttachmentRenderer } from './attachment-renderer';
 import { cn } from '@/lib/utils';
+import { useAttachmentDimensions } from '@/hooks/use-attachment-dimensions';
 
 type AttachmentGridProps = {
   attachments: Attachment[];
@@ -12,6 +13,8 @@ export const AttachmentGrid = memo(function AttachmentGrid({
   attachments,
   onOpenLightbox,
 }: AttachmentGridProps) {
+  // Prefetch dimensions for all attachments to prevent layout shift
+  const dimensions = useAttachmentDimensions(attachments);
   const count = attachments.length;
 
   // Single attachment - render directly
@@ -22,6 +25,7 @@ export const AttachmentGrid = memo(function AttachmentGrid({
     return (
       <AttachmentRenderer
         attachment={attachment}
+        dimensions={attachment.localPath ? dimensions[attachment.localPath] : undefined}
         onOpenLightbox={canOpenLightbox ? () => onOpenLightbox(0) : undefined}
       />
     );
@@ -65,6 +69,7 @@ export const AttachmentGrid = memo(function AttachmentGrid({
         <div className="relative z-10">
           <AttachmentRenderer
             attachment={visibleAttachments[0]}
+            dimensions={visibleAttachments[0].localPath ? dimensions[visibleAttachments[0].localPath] : undefined}
             onOpenLightbox={() => onOpenLightbox(0)}
           />
         </div>
@@ -100,6 +105,7 @@ export const AttachmentGrid = memo(function AttachmentGrid({
           <div key={attachment.rowid} className="relative">
             <AttachmentRenderer
               attachment={attachment}
+              dimensions={attachment.localPath ? dimensions[attachment.localPath] : undefined}
               onOpenLightbox={canOpenLightbox ? () => onOpenLightbox(index) : undefined}
             />
             {isLastVisible && (

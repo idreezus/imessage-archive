@@ -62,6 +62,9 @@ export type ElectronAPI = {
 
   // Attachment API
   getAttachmentFileUrl: (relativePath: string) => Promise<string | null>;
+  getAttachmentDimensions: (
+    localPaths: string[]
+  ) => Promise<Record<string, { width: number; height: number }>>;
 
   // Gallery API
   getGalleryAttachments: (options: GalleryQueryOptions) => Promise<GalleryResponse>;

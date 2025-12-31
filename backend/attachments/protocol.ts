@@ -12,6 +12,7 @@ import {
   generateVideoThumbnailInWorker,
   convertHeicInWorker,
 } from "./thumbnail-pool";
+import { setDimensions } from "./dimensions-cache";
 
 // Must be called before app.whenReady()
 protocol.registerSchemesAsPrivileged([
@@ -71,11 +72,24 @@ export function registerAttachmentProtocol(): void {
 
           if (!thumbnail) {
             if (isVideoFile(ext)) {
-              thumbnail = await generateVideoThumbnailInWorker(resolvedPath, size);
+              const result = await generateVideoThumbnailInWorker(
+                resolvedPath,
+                size
+              );
+              thumbnail = result.buffer;
+              // Cache original dimensions for layout shift prevention
+              setDimensions(relativePath, result.width, result.height);
             } else {
               const inputBuffer = await fs.promises.readFile(resolvedPath);
               const isHeic = ext === ".heic" || ext === ".heif";
-              thumbnail = await generateImageThumbnailInWorker(inputBuffer, size, isHeic);
+              const result = await generateImageThumbnailInWorker(
+                inputBuffer,
+                size,
+                isHeic
+              );
+              thumbnail = result.buffer;
+              // Cache original dimensions for layout shift prevention
+              setDimensions(relativePath, result.width, result.height);
             }
             await writeToCache(cacheKey, thumbnail);
           }

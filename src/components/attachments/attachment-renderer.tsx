@@ -10,11 +10,13 @@ import { UnavailableAttachment } from './unavailable-attachment';
 
 type AttachmentRendererProps = {
   attachment: Attachment;
+  dimensions?: { width: number; height: number };
   onOpenLightbox?: () => void;
 };
 
 export const AttachmentRenderer = memo(function AttachmentRenderer({
   attachment,
+  dimensions,
   onOpenLightbox,
 }: AttachmentRendererProps) {
   // If no local path, show unavailable
@@ -27,6 +29,7 @@ export const AttachmentRenderer = memo(function AttachmentRenderer({
       return (
         <ImageAttachment
           attachment={attachment}
+          dimensions={dimensions}
           onOpenLightbox={onOpenLightbox}
         />
       );
@@ -35,6 +38,7 @@ export const AttachmentRenderer = memo(function AttachmentRenderer({
       return (
         <VideoAttachment
           attachment={attachment}
+          dimensions={dimensions}
           onOpenLightbox={onOpenLightbox}
         />
       );

@@ -7,6 +7,7 @@ import { AttachmentContextMenu } from './attachment-context-menu';
 
 type ImageAttachmentProps = {
   attachment: Attachment;
+  dimensions?: { width: number; height: number };
   onOpenLightbox?: () => void;
   maxWidth?: number;
   maxHeight?: number;
@@ -47,41 +48,36 @@ function calculateDisplayDimensions(
 
 export const ImageAttachment = memo(function ImageAttachment({
   attachment,
+  dimensions,
   onOpenLightbox,
   maxWidth = MAX_WIDTH,
   maxHeight = MAX_HEIGHT,
 }: ImageAttachmentProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [naturalDimensions, setNaturalDimensions] = useState<{ width: number; height: number } | null>(null);
 
   // Use preview-size (720px) for message view - much smaller than full resolution
   // Full resolution only loads when opening lightbox
   const imageUrl = getPreviewUrl(attachment.localPath);
 
-  // Calculate placeholder dimensions - use a reasonable default aspect ratio
-  const placeholderDimensions = useMemo(() => ({
-    width: Math.min(maxWidth * 0.6, maxWidth),
-    height: Math.min(maxWidth * 0.8, maxHeight),
-  }), [maxWidth, maxHeight]);
+  // Calculate container dimensions from pre-fetched dimensions or fallback to placeholder
+  const containerDimensions = useMemo(() => {
+    if (dimensions && dimensions.width > 0 && dimensions.height > 0) {
+      return calculateDisplayDimensions(
+        dimensions.width,
+        dimensions.height,
+        maxWidth,
+        maxHeight
+      );
+    }
+    // Fallback placeholder dimensions
+    return {
+      width: Math.min(maxWidth * 0.6, maxWidth),
+      height: Math.min(maxWidth * 0.8, maxHeight),
+    };
+  }, [dimensions, maxWidth, maxHeight]);
 
-  // Calculate display dimensions from natural dimensions
-  const displayDimensions = useMemo(() => {
-    if (!naturalDimensions) return null;
-    return calculateDisplayDimensions(
-      naturalDimensions.width,
-      naturalDimensions.height,
-      maxWidth,
-      maxHeight
-    );
-  }, [naturalDimensions, maxWidth, maxHeight]);
-
-  const handleImageLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
-    const img = e.currentTarget;
-    setNaturalDimensions({
-      width: img.naturalWidth,
-      height: img.naturalHeight,
-    });
+  const handleImageLoad = useCallback(() => {
     setIsLoading(false);
   }, []);
 
@@ -97,11 +93,6 @@ export const ImageAttachment = memo(function ImageAttachment({
     return <UnavailableAttachment attachment={attachment} />;
   }
 
-  // Use display dimensions if available, otherwise constrain with maxWidth/maxHeight
-  const containerStyle = displayDimensions
-    ? { width: displayDimensions.width, height: displayDimensions.height }
-    : placeholderDimensions;
-
   return (
     <AttachmentContextMenu attachment={attachment}>
       <button
@@ -110,7 +101,7 @@ export const ImageAttachment = memo(function ImageAttachment({
           'relative block focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-2xl overflow-hidden',
           onOpenLightbox && 'cursor-pointer hover:opacity-90 transition-opacity'
         )}
-        style={containerStyle}
+        style={{ width: containerDimensions.width, height: containerDimensions.height }}
         disabled={!onOpenLightbox}
       >
         {isLoading && (
@@ -122,7 +113,7 @@ export const ImageAttachment = memo(function ImageAttachment({
           src={imageUrl}
           alt={attachment.transferName || 'Image'}
           className={cn(
-            'w-full h-full object-contain rounded-2xl transition-opacity duration-200',
+            'w-full h-full object-cover rounded-2xl transition-opacity duration-200',
             isLoading ? 'opacity-0' : 'opacity-100'
           )}
           onLoad={handleImageLoad}

@@ -117,6 +117,12 @@ const electronAPI = {
 
   shareAttachment: (localPath: string) =>
     ipcRenderer.invoke("attachments:share", { localPath }),
+
+  // Get cached dimensions for multiple attachments (used to prevent layout shift)
+  getAttachmentDimensions: (localPaths: string[]) =>
+    ipcRenderer.invoke("attachment:get-dimensions-batch", { localPaths }) as Promise<
+      Record<string, { width: number; height: number }>
+    >,
 };
 
 // Expose API to renderer process securely
