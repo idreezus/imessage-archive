@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { formatDate, formatTime } from '../utils';
+import { formatDate, formatTime } from '@/lib/messages';
 
 type MessageTimestampProps = {
   timestamp: number;

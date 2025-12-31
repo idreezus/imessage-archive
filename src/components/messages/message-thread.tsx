@@ -9,7 +9,7 @@ import {
   EmptyDescription,
 } from '@/components/ui/empty';
 import { MessageBubble } from '@/components/messages';
-import { ConversationHeader } from '@/components/conversation-header';
+import { ConversationHeader } from '@/components/conversations/conversation-header';
 import { useMessages } from '@/hooks/use-messages';
 import { useRenderTiming } from '@/lib/perf';
 import type { Conversation } from '@/types';

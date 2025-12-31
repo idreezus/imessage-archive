@@ -1,5 +1,38 @@
 // Message helper functions
 
+// Format timestamp as time string (e.g., "2:30 PM").
+export function formatTime(timestamp: number): string {
+  if (!timestamp) return '';
+  return new Date(timestamp).toLocaleTimeString([], {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+// Format timestamp as date string with relative terms.
+export function formatDate(timestamp: number): string {
+  if (!timestamp) return '';
+
+  const date = new Date(timestamp);
+  const today = new Date();
+
+  if (date.toDateString() === today.toDateString()) {
+    return 'Today';
+  }
+
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (date.toDateString() === yesterday.toDateString()) {
+    return 'Yesterday';
+  }
+
+  return date.toLocaleDateString([], {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
 // Map expressive send style IDs to human-readable names
 const EFFECT_NAMES: Record<string, string> = {
   // Screen effects

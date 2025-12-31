@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 import { getThumbnailUrl, markUrlFailed } from '@/lib/attachment-url';
 import { Button } from '@/components/ui/button';
 import { LightboxToolbar } from './lightbox-toolbar';
-import { AttachmentInfoSheet } from './attachment-info-sheet';
+import { AttachmentInfoSheet } from '../attachments/attachment-info-sheet';
 
 type LightboxProps = {
   attachments: Attachment[];

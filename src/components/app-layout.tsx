@@ -8,8 +8,8 @@ import {
   SidebarInset,
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
-import { ConversationList } from '@/components/conversation-list';
-import { MessageThread } from '@/components/messages/components/message-thread';
+import { ConversationList } from '@/components/conversations/conversation-list';
+import { MessageThread } from '@/components/messages/message-thread';
 import {
   SearchProvider,
   SearchContainer,
@@ -39,11 +39,19 @@ function AppLayoutInner() {
   useEffect(() => {
     if (gallery.isGalleryOpen && selectedConversation) {
       // If viewing a chat-specific gallery and switching to a different chat
-      if (gallery.chatId !== null && gallery.chatId !== selectedConversation.rowid) {
+      if (
+        gallery.chatId !== null &&
+        gallery.chatId !== selectedConversation.rowid
+      ) {
         gallery.closeGallery();
       }
     }
-  }, [selectedConversation?.rowid, gallery.isGalleryOpen, gallery.chatId, gallery.closeGallery]);
+  }, [
+    selectedConversation?.rowid,
+    gallery.isGalleryOpen,
+    gallery.chatId,
+    gallery.closeGallery,
+  ]);
 
   // Handle clicking a search result
   const handleSearchResultClick = useCallback(

@@ -1,7 +1,7 @@
 import { useCallback, useRef } from 'react';
 import { SidebarMenu, SidebarMenuItem } from '@/components/ui/sidebar';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ConversationItem } from '@/components/conversation-item';
+import { ConversationItem } from '@/components/conversations/conversation-item';
 import { useConversations } from '@/hooks/use-conversations';
 import type { Conversation } from '@/types';
 

@@ -4,11 +4,11 @@ import type { Message } from '@/types';
 import { Lightbox } from '@/components/attachments';
 import { useMessageAttachments } from '@/hooks/use-message-attachments';
 import { useMessageLightbox } from '@/hooks/use-message-lightbox';
-import { MessageTimestamp } from './components/message-timestamp';
-import { MessageSender } from './components/message-sender';
-import { MessageMedia } from './components/message-media';
-import { MessageTextBubble } from './components/message-text-bubble';
-import { MessageFallback } from './components/message-fallback';
+import { MessageTimestamp } from '@/components/messages/message-timestamp';
+import { MessageSender } from '@/components/messages/message-sender';
+import { MessageMedia } from '@/components/messages/message-media';
+import { MessageTextBubble } from '@/components/messages/message-text-bubble';
+import { MessageFallback } from '@/components/messages/message-fallback';
 
 type MessageBubbleProps = {
   message: Message;
@@ -45,15 +45,19 @@ export function MessageBubble({
     useMessageLightbox(mediaAttachments);
 
   // Determine where reactions should appear (on last content element)
-  const showReactionsOnMedia = hasReactions && !hasText && !hasNonMediaAttachments;
-  const showReactionsOnBubble = hasReactions && (hasText || hasNonMediaAttachments);
-  const showReactionsOnFallback = hasReactions && !hasMediaAttachments && !hasText && !hasNonMediaAttachments;
+  const showReactionsOnMedia =
+    hasReactions && !hasText && !hasNonMediaAttachments;
+  const showReactionsOnBubble =
+    hasReactions && (hasText || hasNonMediaAttachments);
+  const showReactionsOnFallback =
+    hasReactions && !hasMediaAttachments && !hasText && !hasNonMediaAttachments;
 
   return (
     <div
       className={cn(
         'space-y-1 transition-all duration-300',
-        isHighlighted && 'bg-primary/10 -mx-2 px-2 py-1 rounded-lg ring-2 ring-primary/30'
+        isHighlighted &&
+          'bg-primary/10 -mx-2 px-2 py-1 rounded-lg ring-2 ring-primary/30'
       )}
     >
       {showTimestamp && <MessageTimestamp timestamp={message.date} />}
@@ -82,7 +86,9 @@ export function MessageBubble({
                 text={displayText}
                 nonMediaAttachments={nonMediaAttachments}
                 isFromMe={isFromMe}
-                reactions={showReactionsOnBubble ? message.reactions : undefined}
+                reactions={
+                  showReactionsOnBubble ? message.reactions : undefined
+                }
                 showReactionDetails={showReactionDetails}
                 onShowReactionDetailsChange={setShowReactionDetails}
               />
@@ -92,7 +98,9 @@ export function MessageBubble({
               <MessageFallback
                 message={message}
                 isFromMe={isFromMe}
-                reactions={showReactionsOnFallback ? message.reactions : undefined}
+                reactions={
+                  showReactionsOnFallback ? message.reactions : undefined
+                }
                 showReactionDetails={showReactionDetails}
                 onShowReactionDetailsChange={setShowReactionDetails}
               />

@@ -1,7 +1,7 @@
-import { useSearchContext } from "./search-context";
-import { SearchBar } from "./search-bar";
-import { SearchFilters } from "./search-filters";
-import { ActiveFilters } from "./active-filters";
+import { useSearchContext } from './search-context';
+import { SearchBar } from './search-bar';
+import { SearchFilters } from './search-filters';
+import { ActiveFilters } from './search-active-filters';
 
 export function SearchContainer() {
   const search = useSearchContext();
@@ -32,10 +32,7 @@ export function SearchContainer() {
         isOpen={search.isFiltersOpen}
       />
 
-      <ActiveFilters
-        filters={search.filters}
-        onRemove={search.removeFilter}
-      />
+      <ActiveFilters filters={search.filters} onRemove={search.removeFilter} />
     </div>
   );
 }

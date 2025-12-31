@@ -7,9 +7,13 @@ import { GalleryThumbnail } from './gallery-thumbnail';
 import { GalleryMonthHeader } from './gallery-month-header';
 import { GalleryEmpty } from './gallery-empty';
 import { GalleryFilters } from './gallery-filters';
-import { Lightbox } from '@/components/attachments/lightbox';
+import { Lightbox } from '@/components/lightbox/lightbox';
 import { Skeleton } from '@/components/ui/skeleton';
-import type { GalleryAttachment, GalleryGridItem, MonthGroup } from '@/types/gallery';
+import type {
+  GalleryAttachment,
+  GalleryGridItem,
+  MonthGroup,
+} from '@/types/gallery';
 
 // Format month key to display label
 function formatMonthLabel(monthKey: string): string {
@@ -54,7 +58,11 @@ function flattenToGridItems(
   const items: GalleryGridItem[] = [];
 
   for (const group of groups) {
-    items.push({ type: 'header', monthKey: group.monthKey, label: group.label });
+    items.push({
+      type: 'header',
+      monthKey: group.monthKey,
+      label: group.label,
+    });
     for (const attachment of group.attachments) {
       items.push({ type: 'attachment', data: attachment });
     }

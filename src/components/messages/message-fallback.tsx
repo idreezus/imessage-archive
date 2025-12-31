@@ -1,8 +1,8 @@
 import { memo } from 'react';
 import { cn } from '@/lib/utils';
 import type { Message, Reaction } from '@/types';
-import { MessageReactions } from './message-reactions';
-import { MessageContextMenu } from './message-context-menu';
+import { MessageReactions } from '@/components/messages/message-reactions';
+import { MessageContextMenu } from '@/components/messages/message-context-menu';
 
 type MessageFallbackProps = {
   message: Message;

@@ -1,6 +1,6 @@
 export { AttachmentRenderer } from './attachment-renderer';
 export { AttachmentGrid } from './attachment-grid';
-export { Lightbox } from './lightbox';
+export { Lightbox } from '../lightbox/lightbox';
 export { ImageAttachment } from './image-attachment';
 export { VideoAttachment } from './video-attachment';
 export { AudioAttachment } from './audio-attachment';

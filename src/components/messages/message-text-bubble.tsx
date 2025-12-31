@@ -2,8 +2,8 @@ import { memo, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import type { Attachment, Message, Reaction } from '@/types';
 import { AttachmentGrid } from '@/components/attachments';
-import { MessageReactions } from './message-reactions';
-import { MessageContextMenu } from './message-context-menu';
+import { MessageReactions } from '@/components/messages/message-reactions';
+import { MessageContextMenu } from '@/components/messages/message-context-menu';
 
 type MessageTextBubbleProps = {
   message: Message;

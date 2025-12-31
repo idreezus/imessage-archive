@@ -56,6 +56,11 @@ export function isPlayableAudio(attachment: Attachment): boolean {
   ].includes(mime);
 }
 
+// Check if an attachment is a media type (image or video) that should render standalone.
+export function isMediaAttachment(attachment: Attachment): boolean {
+  return attachment.type === 'image' || attachment.type === 'video';
+}
+
 // Get file extension from filename or mime type
 export function getFileExtension(attachment: Attachment): string {
   const filename = attachment.transferName || attachment.filename;

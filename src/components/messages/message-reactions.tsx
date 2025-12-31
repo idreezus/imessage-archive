@@ -1,8 +1,8 @@
 import { memo } from 'react';
 import { cn } from '@/lib/utils';
 import type { Reaction } from '@/types';
-import { ReactionStack } from '@/components/reaction-stack';
-import { ReactionPopover } from '@/components/reaction-popover';
+import { ReactionStack } from '@/components/reactions/reaction-stack';
+import { ReactionPopover } from '@/components/reactions/reaction-popover';
 
 type MessageReactionsProps = {
   reactions: Reaction[];

@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import type { Attachment, Reaction } from '@/types';
 import { AttachmentGrid } from '@/components/attachments';
-import { MessageReactions } from './message-reactions';
+import { MessageReactions } from '@/components/messages/message-reactions';
 
 type MessageMediaProps = {
   attachments: Attachment[];
@@ -34,7 +34,10 @@ export const MessageMedia = memo(function MessageMedia({
           onShowDetailsChange={onShowReactionDetailsChange}
         />
       )}
-      <AttachmentGrid attachments={attachments} onOpenLightbox={onOpenLightbox} />
+      <AttachmentGrid
+        attachments={attachments}
+        onOpenLightbox={onOpenLightbox}
+      />
     </div>
   );
 });
