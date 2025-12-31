@@ -1,5 +1,5 @@
 import { memo, useCallback, useMemo, useRef } from 'react';
-import { VirtuosoGrid, type ListRange } from 'react-virtuoso';
+import { VirtuosoGrid, type ListRange, type ScrollSeekConfiguration } from 'react-virtuoso';
 import { useRenderTiming, measureSync, log } from '@/lib/perf';
 import { useGalleryContext } from './gallery-context';
 import { GalleryHeader } from './gallery-header';
@@ -82,6 +82,19 @@ function LoadingSkeleton() {
     </div>
   );
 }
+
+// Scroll seek placeholder component - shown during fast scrolling
+const ScrollSeekPlaceholder = memo(function ScrollSeekPlaceholder() {
+  return (
+    <div className="w-full h-full rounded-lg bg-muted/50 animate-pulse" />
+  );
+});
+
+// Scroll seek configuration - show placeholders during fast scrolling
+const scrollSeekConfig: ScrollSeekConfiguration = {
+  enter: (velocity) => Math.abs(velocity) > 500,
+  exit: (velocity) => Math.abs(velocity) < 100,
+};
 
 export const GalleryView = memo(function GalleryView() {
   const {
@@ -253,11 +266,13 @@ export const GalleryView = memo(function GalleryView() {
           itemContent={renderItem}
           listClassName="gallery-grid"
           itemClassName="gallery-grid-item"
-          overscan={50}
+          overscan={12}
           endReached={handleEndReached}
           rangeChanged={handleRangeChanged}
+          scrollSeekConfiguration={scrollSeekConfig}
           style={{ height: '100%' }}
           components={{
+            ScrollSeekPlaceholder,
             Footer: () =>
               hasMore ? (
                 <div className="col-span-full flex justify-center py-4">

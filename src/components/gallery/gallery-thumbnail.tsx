@@ -5,6 +5,7 @@ import type { Attachment } from '@/types';
 import { cn } from '@/lib/utils';
 import { getThumbnailUrl, markUrlFailed } from '@/lib/attachment-url';
 import { AttachmentContextMenu } from '@/components/attachments/attachment-context-menu';
+import { Skeleton } from '@/components/ui/skeleton';
 
 type GalleryThumbnailProps = {
   attachment: GalleryAttachment;
@@ -15,6 +16,7 @@ export const GalleryThumbnail = memo(function GalleryThumbnail({
   attachment,
   onClick,
 }: GalleryThumbnailProps) {
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
 
   // Convert GalleryAttachment to Attachment for context menu compatibility
@@ -43,12 +45,18 @@ export const GalleryThumbnail = memo(function GalleryThumbnail({
 
   const thumbnailUrl = isMedia ? getThumbnailUrl(attachment.localPath) : null;
 
+  // Handle image load success
+  const handleLoad = useCallback(() => {
+    setIsLoading(false);
+  }, []);
+
   // Handle image load error (file doesn't exist)
   // Mark URL as failed so we don't retry on component recycle
   const handleError = useCallback(() => {
     if (thumbnailUrl) {
       markUrlFailed(thumbnailUrl);
     }
+    setIsLoading(false);
     setError(true);
   }, [thumbnailUrl]);
 
@@ -97,24 +105,34 @@ export const GalleryThumbnail = memo(function GalleryThumbnail({
     );
   }
 
-  // Image/video thumbnail
+  // Image/video thumbnail with skeleton-first loading
   return (
     <AttachmentContextMenu attachment={contextMenuAttachment}>
       <button
         onClick={onClick}
         className="relative w-full h-full rounded-lg overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-primary hover:opacity-90 transition-opacity"
       >
+        {/* Skeleton placeholder - visible while loading */}
+        {isLoading && (
+          <Skeleton className="absolute inset-0 w-full h-full rounded-lg" />
+        )}
+
+        {/* Image with fade-in animation */}
         <img
           src={thumbnailUrl}
           alt={attachment.transferName || 'Media'}
-          className="w-full h-full object-cover"
+          className={cn(
+            'w-full h-full object-cover transition-opacity duration-200',
+            isLoading ? 'opacity-0' : 'opacity-100'
+          )}
           loading="lazy"
           decoding="async"
+          onLoad={handleLoad}
           onError={handleError}
         />
 
-        {/* Video play icon overlay */}
-        {attachment.type === 'video' && (
+        {/* Video play icon overlay - only show after image loads */}
+        {!isLoading && attachment.type === 'video' && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/20">
             <div className="w-10 h-10 rounded-full bg-black/50 flex items-center justify-center">
               <Play className="size-5 text-white ml-0.5" fill="white" />
@@ -122,14 +140,16 @@ export const GalleryThumbnail = memo(function GalleryThumbnail({
           </div>
         )}
 
-        {/* Direction indicator */}
-        <div
-          className={cn(
-            'absolute bottom-1 right-1 w-2 h-2 rounded-full',
-            attachment.isFromMe ? 'bg-primary' : 'bg-muted-foreground'
-          )}
-          title={attachment.isFromMe ? 'Sent' : 'Received'}
-        />
+        {/* Direction indicator - only show after image loads */}
+        {!isLoading && (
+          <div
+            className={cn(
+              'absolute bottom-1 right-1 w-2 h-2 rounded-full',
+              attachment.isFromMe ? 'bg-primary' : 'bg-muted-foreground'
+            )}
+            title={attachment.isFromMe ? 'Sent' : 'Received'}
+          />
+        )}
       </button>
     </AttachmentContextMenu>
   );

@@ -145,6 +145,7 @@ function matchesTypeFilter(
 }
 
 // Get attachments for gallery view with filtering and pagination
+// NOTE: Stats are fetched separately via gallery:get-stats for parallel loading
 export function getGalleryAttachments(
   options: GalleryQueryOptions
 ): GalleryResponse {
@@ -205,26 +206,40 @@ export function getGalleryAttachments(
   // Trim to limit
   attachments = attachments.slice(0, limit);
 
-  // Get stats (separate query for accuracy)
-  const stats = getGalleryStats({
+  timer.end({ count: attachments.length, hasMore });
+
+  // Return without stats - frontend fetches stats separately for parallel loading
+  return {
+    attachments,
+    total: 0, // Will be updated by stats fetch
+    hasMore,
+    stats: null, // Stats fetched separately
+  };
+}
+
+// Stats cache with TTL (5 seconds)
+const STATS_CACHE_TTL = 5000;
+const statsCache = new Map<string, { stats: GalleryStats; timestamp: number }>();
+
+// Generate cache key from options
+function getStatsCacheKey(options: GalleryStatsOptions): string {
+  return JSON.stringify({
     chatId: options.chatId,
     direction: options.direction,
     dateFrom: options.dateFrom,
     dateTo: options.dateTo,
   });
-
-  timer.end({ count: attachments.length, hasMore });
-
-  return {
-    attachments,
-    total: stats.total,
-    hasMore,
-    stats,
-  };
 }
 
-// Get gallery stats for header display
+// Get gallery stats for header display (with caching)
 export function getGalleryStats(options: GalleryStatsOptions): GalleryStats {
+  // Check cache first
+  const cacheKey = getStatsCacheKey(options);
+  const cached = statsCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < STATS_CACHE_TTL) {
+    return cached.stats;
+  }
+
   const timer = startTimer("db", "getGalleryStats");
   const db = getDatabaseInstance();
 
@@ -287,7 +302,18 @@ export function getGalleryStats(options: GalleryStatsOptions): GalleryStats {
     }
   }
 
-  timer.end({ total: stats.total });
+  // Cache the result
+  statsCache.set(cacheKey, { stats, timestamp: Date.now() });
+
+  // Limit cache size (keep most recent 20 entries)
+  if (statsCache.size > 20) {
+    const oldestKey = statsCache.keys().next().value;
+    if (oldestKey) {
+      statsCache.delete(oldestKey);
+    }
+  }
+
+  timer.end({ total: stats.total, cached: false });
 
   return stats;
 }

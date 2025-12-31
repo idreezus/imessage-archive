@@ -28,6 +28,7 @@ import {
 } from "./search";
 import { registerGalleryHandlers } from "./gallery";
 import { startPhase, endStartup } from "./perf";
+import { shutdownThumbnailPool } from "./attachments/thumbnail-pool";
 
 let mainWindow: BrowserWindow | null = null;
 let searchService: SearchIndexService | null = null;
@@ -169,7 +170,10 @@ app.on("window-all-closed", () => {
   }
 });
 
-app.on("quit", () => {
+app.on("quit", async () => {
+  // Shutdown thumbnail worker pool
+  await shutdownThumbnailPool();
+
   if (searchService) {
     searchService.close();
   }

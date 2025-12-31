@@ -6,11 +6,11 @@ import { pathToFileURL } from "url";
 import heicConvert from "heic-convert";
 import { getAttachmentsBasePath } from "./paths";
 import { getCacheKey, readFromCache, writeToCache } from "./thumbnail-cache";
+import { isVideoFile } from "./thumbnail-service";
 import {
-  generateImageThumbnail,
-  generateVideoThumbnail,
-  isVideoFile,
-} from "./thumbnail-service";
+  generateImageThumbnailInWorker,
+  generateVideoThumbnailInWorker,
+} from "./thumbnail-pool";
 
 // MUST be called before app.whenReady() - enables video/audio streaming
 // We use "file/" prefix in URLs to prevent numeric path normalization (42 -> 0.0.0.42)
@@ -78,25 +78,17 @@ export function registerAttachmentProtocol(): void {
           let thumbnail = await readFromCache(cacheKey);
 
           if (!thumbnail) {
-            // Generate thumbnail
+            // Generate thumbnail in worker thread (non-blocking)
             if (isVideoFile(ext)) {
-              // Extract frame from video
-              thumbnail = await generateVideoThumbnail(resolvedPath, size);
+              // Extract frame from video in worker
+              thumbnail = await generateVideoThumbnailInWorker(resolvedPath, size);
             } else {
               // Read image file
-              let inputBuffer = await fs.promises.readFile(resolvedPath);
+              const inputBuffer = await fs.promises.readFile(resolvedPath);
+              const isHeic = ext === ".heic" || ext === ".heif";
 
-              // Handle HEIC conversion first
-              if (ext === ".heic" || ext === ".heif") {
-                inputBuffer = await heicConvert({
-                  buffer: inputBuffer,
-                  format: "JPEG",
-                  quality: 0.9,
-                });
-              }
-
-              // Generate thumbnail
-              thumbnail = await generateImageThumbnail(inputBuffer, size);
+              // Generate thumbnail in worker (handles HEIC conversion internally)
+              thumbnail = await generateImageThumbnailInWorker(inputBuffer, size, isHeic);
             }
 
             // Cache the result

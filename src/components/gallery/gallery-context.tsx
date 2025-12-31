@@ -176,7 +176,7 @@ export function GalleryProvider({ children }: { children: ReactNode }) {
     );
   }, [filters]);
 
-  // Execute gallery fetch
+  // Execute gallery fetch - attachments and stats in parallel
   const executeGalleryFetch = useCallback(
     async (
       currentFilters: GalleryFilters,
@@ -221,8 +221,24 @@ export function GalleryProvider({ children }: { children: ReactNode }) {
       setError(null);
 
       const timer = startTimer('ipc', 'getGalleryAttachments');
+
+      // Prepare stats options (subset of query options)
+      const statsOptions = {
+        chatId: options.chatId,
+        direction: options.direction,
+        dateFrom: options.dateFrom,
+        dateTo: options.dateTo,
+      };
+
       try {
-        const response = await window.electronAPI.getGalleryAttachments(options);
+        // Fetch attachments and stats in parallel for faster initial load
+        const [attachmentsResponse, statsResponse] = await Promise.all([
+          window.electronAPI.getGalleryAttachments(options),
+          // Only fetch stats on first page (offset 0)
+          offset === 0
+            ? window.electronAPI.getGalleryStats(statsOptions)
+            : Promise.resolve(null),
+        ]);
 
         // Check if aborted
         if (abortControllerRef.current?.signal.aborted) {
@@ -233,22 +249,33 @@ export function GalleryProvider({ children }: { children: ReactNode }) {
           chatId: options.chatId ?? null,
           limit: options.limit,
           offset: options.offset,
-          attachmentCount: response.attachments.length,
+          attachmentCount: attachmentsResponse.attachments.length,
           types: options.types ?? 'all',
         });
 
+        // Merge stats into response for caching
+        const responseWithStats = {
+          ...attachmentsResponse,
+          stats: statsResponse,
+        };
+
         // Cache result
-        cacheRef.current.set(cacheKey, response);
+        cacheRef.current.set(cacheKey, responseWithStats);
 
         // Update state
         if (append) {
-          setAttachments((prev) => [...prev, ...response.attachments]);
+          setAttachments((prev) => [...prev, ...attachmentsResponse.attachments]);
         } else {
-          setAttachments(response.attachments);
+          setAttachments(attachmentsResponse.attachments);
         }
-        setStats(response.stats);
-        setHasMore(response.hasMore);
-        currentOffsetRef.current = offset + response.attachments.length;
+
+        // Only update stats if we fetched them (first page)
+        if (statsResponse) {
+          setStats(statsResponse);
+        }
+
+        setHasMore(attachmentsResponse.hasMore);
+        currentOffsetRef.current = offset + attachmentsResponse.attachments.length;
       } catch (err) {
         if (err instanceof Error && err.name !== 'AbortError') {
           setError(err);

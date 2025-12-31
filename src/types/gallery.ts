@@ -43,11 +43,12 @@ export type GalleryStats = {
 };
 
 // Gallery query response
+// Note: stats may be null when fetched separately for parallel loading
 export type GalleryResponse = {
   attachments: GalleryAttachment[];
   total: number;
   hasMore: boolean;
-  stats: GalleryStats;
+  stats: GalleryStats | null;
 };
 
 // Stats query options (subset of GalleryQueryOptions)
