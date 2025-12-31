@@ -31,7 +31,6 @@ type SearchFiltersProps = {
   onHasAttachmentChange: (hasAttachment: boolean | null) => void;
   onSpecificChatChange: (specificChat: number | null) => void;
   onRegexModeChange: (regexMode: boolean) => void;
-  isOpen: boolean;
 };
 
 const DATE_PRESETS: { value: DatePreset; label: string }[] = [
@@ -51,15 +50,14 @@ export function SearchFilters({
   onHasAttachmentChange,
   onSpecificChatChange,
   onRegexModeChange,
-  isOpen,
 }: SearchFiltersProps) {
   const [handles, setHandles] = useState<Handle[]>([]);
   const [chats, setChats] = useState<ChatFilterOption[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
 
-  // Load handles and chats for autocomplete when filters open
+  // Load handles and chats for autocomplete on mount
   useEffect(() => {
-    if (isOpen && handles.length === 0 && chats.length === 0) {
+    if (handles.length === 0 && chats.length === 0) {
       setIsLoadingData(true);
       Promise.all([
         window.electronAPI.getHandles(),
@@ -71,9 +69,7 @@ export function SearchFilters({
         })
         .finally(() => setIsLoadingData(false));
     }
-  }, [isOpen, handles.length, chats.length]);
-
-  if (!isOpen) return null;
+  }, [handles.length, chats.length]);
 
   const handleDatePresetChange = (preset: string) => {
     if (preset && preset !== "custom") {
@@ -101,7 +97,7 @@ export function SearchFilters({
   };
 
   return (
-    <div className="border-b p-3 space-y-3 animate-in slide-in-from-top-2 duration-200">
+    <div className="space-y-4">
       {/* Date Range */}
       <div className="space-y-1.5">
         <Label className="text-xs text-muted-foreground">Date Range</Label>

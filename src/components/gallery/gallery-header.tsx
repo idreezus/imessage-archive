@@ -2,6 +2,7 @@ import { memo } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { GalleryFiltersPopover } from './gallery-filters-popover';
 import type { GalleryStats } from '@/types/gallery';
 
 type GalleryHeaderProps = {
@@ -52,6 +53,8 @@ export const GalleryHeader = memo(function GalleryHeader({
             )}
           </div>
         </div>
+
+        <GalleryFiltersPopover />
       </div>
     </div>
   );

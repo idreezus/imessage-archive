@@ -1,9 +1,14 @@
-import { useRef, useEffect, useCallback } from "react";
-import { Search } from "lucide-react";
-import { Empty, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
-import { SearchResultItem } from "./search-result-item";
-import { SearchResultSkeleton } from "./search-result-skeleton";
-import type { SearchResultItem as SearchResultItemType } from "@/types/search";
+import { useRef, useEffect, useCallback } from 'react';
+import { Search } from 'lucide-react';
+import {
+  Empty,
+  EmptyMedia,
+  EmptyTitle,
+  EmptyDescription,
+} from '@/components/ui/empty';
+import { SearchResultItem } from './search-result-item';
+import { SearchResultSkeleton } from './search-result-skeleton';
+import type { SearchResultItem as SearchResultItemType } from '@/types/search';
 
 type SearchResultsProps = {
   results: SearchResultItemType[];
@@ -44,7 +49,7 @@ export function SearchResults({
       const selectedElement = document.querySelector(
         `[data-search-result-index="${selectedIndex}"]`
       );
-      selectedElement?.scrollIntoView({ block: "nearest" });
+      selectedElement?.scrollIntoView({ block: 'nearest' });
     }
   }, [selectedIndex, results.length]);
 
@@ -70,7 +75,9 @@ export function SearchResults({
             <Search className="size-6" />
           </EmptyMedia>
           <EmptyTitle>No results found</EmptyTitle>
-          <EmptyDescription>Try adjusting your search or filters</EmptyDescription>
+          <EmptyDescription>
+            Try adjusting your search or filters
+          </EmptyDescription>
         </Empty>
       </div>
     );
@@ -79,8 +86,8 @@ export function SearchResults({
   return (
     <div className="flex-1 flex flex-col min-h-0">
       {/* Results count */}
-      <div className="px-4 py-2 text-xs text-muted-foreground border-b shrink-0">
-        {total.toLocaleString()} result{total !== 1 ? "s" : ""}
+      <div className="px-4 pb-2 text-xs text-muted-foreground border-b shrink-0">
+        {total.toLocaleString()} result{total !== 1 ? 's' : ''}
       </div>
 
       {/* Results list - using native overflow scroll */}

@@ -31,7 +31,7 @@ export function AppSidebar({
 
   return (
     <Sidebar className="border-r">
-      <SidebarHeader className="border-b px-4 py-3 space-y-3">
+      <SidebarHeader className="px-4 py-3 space-y-3">
         <div className="flex items-center justify-between pt-sidebar-header">
           <h1 className="font-semibold text-lg">Messages</h1>
           <Button

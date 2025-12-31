@@ -83,7 +83,7 @@ export function SearchBar({
 
         {activeFiltersCount > 0 && (
           <Badge variant="secondary" className="h-5 px-1.5 text-xs">
-            {activeFiltersCount}
+            {activeFiltersCount === 1 ? '1 Filter' : `${activeFiltersCount} Filters`}
           </Badge>
         )}
 

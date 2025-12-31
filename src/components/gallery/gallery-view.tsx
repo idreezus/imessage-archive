@@ -6,7 +6,6 @@ import { GalleryHeader } from './gallery-header';
 import { GalleryThumbnail } from './gallery-thumbnail';
 import { GalleryMonthHeader } from './gallery-month-header';
 import { GalleryEmpty } from './gallery-empty';
-import { GalleryFilters } from './gallery-filters';
 import { Lightbox } from '@/components/lightbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import type {
@@ -216,7 +215,6 @@ export const GalleryView = memo(function GalleryView() {
           chatDisplayName={chatDisplayName}
           onClose={closeGallery}
         />
-        <GalleryFilters />
         <LoadingSkeleton />
       </div>
     );
@@ -232,7 +230,6 @@ export const GalleryView = memo(function GalleryView() {
           chatDisplayName={chatDisplayName}
           onClose={closeGallery}
         />
-        <GalleryFilters />
         <div className="flex-1 flex items-center justify-center">
           <GalleryEmpty isFiltered={isFiltered} isGlobalView={isGlobalView} />
         </div>
@@ -248,7 +245,6 @@ export const GalleryView = memo(function GalleryView() {
         chatDisplayName={chatDisplayName}
         onClose={closeGallery}
       />
-      <GalleryFilters />
 
       {/* Grid */}
       <div className="flex-1 overflow-hidden">
