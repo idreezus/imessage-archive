@@ -1,7 +1,12 @@
 import { isDatabaseOpen } from "../database/connection";
 import { getDatabasePath } from "../shared/paths";
-import { getMessages, getMessagesAroundDate, getDateIndex } from "./queries";
-import { MessagesOptions } from "./types";
+import {
+  getMessages,
+  getMessagesAroundDate,
+  getMessagesAround,
+  getDateIndex,
+} from "./queries";
+import { MessagesOptions, GetMessagesAroundOptions } from "./types";
 import { handleWithTiming } from "../perf";
 
 // Register message-related IPC handlers.
@@ -22,7 +27,16 @@ export function registerMessageHandlers(): void {
     };
   });
 
-  // Get messages around a specific date (for scroll-to navigation)
+  // Unified navigation API - supports date, rowId, and monthKey targets
+  handleWithTiming(
+    "db:get-messages-around",
+    async (_event, options: GetMessagesAroundOptions) => {
+      return getMessagesAround(options);
+    }
+  );
+
+  // Deprecated: Get messages around a specific date (for scroll-to navigation)
+  // Delegates to unified API for consistency. Will be removed after frontend migration.
   handleWithTiming(
     "db:get-messages-around-date",
     async (
@@ -33,7 +47,13 @@ export function registerMessageHandlers(): void {
         contextCount,
       }: { chatId: number; targetDate: number; contextCount?: number }
     ) => {
-      return getMessagesAroundDate(chatId, targetDate, contextCount);
+      const result = getMessagesAround({
+        chatId,
+        target: { type: "date", date: targetDate },
+        contextCount,
+      });
+      // Return old format for backwards compatibility
+      return { messages: result.messages, targetIndex: result.targetIndex };
     }
   );
 

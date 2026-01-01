@@ -53,7 +53,24 @@ export type ElectronAPI = {
     path: string;
   }>;
 
-  // Messages around date (for scroll-to navigation)
+  // Unified navigation API - supports date, rowId, and monthKey targets
+  getMessagesAround: (options: {
+    chatId: number;
+    target:
+      | { type: "date"; date: number }
+      | { type: "rowId"; rowId: number; fallbackDate?: number }
+      | { type: "monthKey"; monthKey: string };
+    contextCount?: number;
+  }) => Promise<{
+    messages: Message[];
+    targetIndex: number;
+    targetRowId: number | null;
+    found: boolean;
+    hasMore: { before: boolean; after: boolean };
+  }>;
+
+  // Deprecated: Messages around date (for scroll-to navigation)
+  // Use getMessagesAround with type: "date" instead
   getMessagesAroundDate: (
     chatId: number,
     targetDate: number,

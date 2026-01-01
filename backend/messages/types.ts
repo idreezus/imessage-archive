@@ -87,3 +87,6 @@ export type MessagesOptions = {
   limit?: number;
   beforeDate?: number;
 };
+
+// Re-export navigation types for unified message navigation API
+export * from "./navigation-types";

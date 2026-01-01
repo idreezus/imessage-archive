@@ -61,6 +61,18 @@ type DownloadAttachmentOptions = {
   suggestedFilename: string;
 };
 
+// Navigation target types for unified message navigation API
+type NavigationTarget =
+  | { type: "date"; date: number }
+  | { type: "rowId"; rowId: number; fallbackDate?: number }
+  | { type: "monthKey"; monthKey: string };
+
+type GetMessagesAroundOptions = {
+  chatId: number;
+  target: NavigationTarget;
+  contextCount?: number;
+};
+
 // Electron API bridge exposed to renderer via window.electronAPI.
 const electronAPI = {
   // Fetch paginated list of conversations
@@ -91,7 +103,12 @@ const electronAPI = {
   getHandles: () => ipcRenderer.invoke("search:get-handles"),
   getChatsForFilter: () => ipcRenderer.invoke("search:get-chats"),
 
-  // Get messages around a specific date (for scroll-to navigation)
+  // Unified navigation API - supports date, rowId, and monthKey targets
+  getMessagesAround: (options: GetMessagesAroundOptions) =>
+    ipcRenderer.invoke("db:get-messages-around", options),
+
+  // Deprecated: Get messages around a specific date (for scroll-to navigation)
+  // Use getMessagesAround with type: "date" instead
   getMessagesAroundDate: (chatId: number, targetDate: number, contextCount?: number) =>
     ipcRenderer.invoke("db:get-messages-around-date", { chatId, targetDate, contextCount }),
 
