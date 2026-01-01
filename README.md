@@ -1,20 +1,21 @@
-# MyMessage
+# iMessage Archive
 
 A local-only iMessage archive viewer for macOS. Browse your iMessage conversations outside of Apple's Messages app with better search and long-term storage capabilities.
 
 ## Overview
 
-MyMessage reads from a local iMessage database copy (`data/chat.db`) and displays conversations in a clean, iMessage-like interface. All data stays local—nothing is sent to any server.
+iMessage Archive reads from a local iMessage database copy (`data/chat.db`) and displays conversations in a clean, iMessage-like interface. All data stays local—nothing is sent to any server.
 
 ### Why?
 
 Apple's Messages app has limitations:
+
 - Poor search functionality
 - No export options
 - Tied to Apple's ecosystem
 - Limited long-term storage management
 
-MyMessage provides an open-source alternative for viewing and navigating your message history.
+iMessage Archive provides an open-source alternative for viewing and navigating your message history.
 
 ## Features (MVP)
 
@@ -38,13 +39,13 @@ MyMessage provides an open-source alternative for viewing and navigating your me
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|------------|
-| Framework | Electron 39 |
-| Frontend | React 19, TypeScript |
-| Styling | Tailwind CSS v4, shadcn/ui (Radix) |
-| Database | SQLite via better-sqlite3 |
-| Build | Vite 7, TypeScript |
+| Layer     | Technology                         |
+| --------- | ---------------------------------- |
+| Framework | Electron 39                        |
+| Frontend  | React 19, TypeScript               |
+| Styling   | Tailwind CSS v4, shadcn/ui (Radix) |
+| Database  | SQLite via better-sqlite3          |
+| Build     | Vite 7, TypeScript                 |
 
 ## Architecture
 
@@ -88,7 +89,7 @@ MyMessage provides an open-source alternative for viewing and navigating your me
 ## Project Structure
 
 ```
-mymessage/
+imessage-archive/
 ├── backend/                     # Electron main process (CommonJS)
 │   ├── main.ts                  # App entry, window, lifecycle
 │   ├── preload.ts               # IPC bridge via contextBridge
@@ -148,45 +149,50 @@ mymessage/
 
 ## Database Schema
 
-MyMessage reads from macOS's native iMessage database. Key tables:
+iMessage Archive reads from macOS's native iMessage database. Key tables:
 
 ### `handle` - Contacts
-| Column | Description |
-|--------|-------------|
-| ROWID | Primary key |
-| id | Phone number (+15551234567) or email |
-| service | "iMessage" or "SMS" |
+
+| Column  | Description                          |
+| ------- | ------------------------------------ |
+| ROWID   | Primary key                          |
+| id      | Phone number (+15551234567) or email |
+| service | "iMessage" or "SMS"                  |
 
 ### `chat` - Conversations
-| Column | Description |
-|--------|-------------|
-| ROWID | Primary key |
-| guid | Unique identifier |
+
+| Column          | Description                               |
+| --------------- | ----------------------------------------- |
+| ROWID           | Primary key                               |
+| guid            | Unique identifier                         |
 | chat_identifier | Primary identifier (phone/email/group ID) |
-| display_name | User-set name (NULL for DMs) |
-| style | 43 = group chat, 45 = individual DM |
+| display_name    | User-set name (NULL for DMs)              |
+| style           | 43 = group chat, 45 = individual DM       |
 
 ### `message` - Messages
-| Column | Description |
-|--------|-------------|
-| ROWID | Primary key |
-| guid | Unique identifier |
-| text | Message content (NULL if attachment-only) |
-| handle_id | FK to handle.ROWID (NULL if is_from_me) |
-| date | Timestamp (Apple format, see below) |
-| is_from_me | 1 = sent, 0 = received |
-| service | "iMessage" or "SMS" |
+
+| Column     | Description                               |
+| ---------- | ----------------------------------------- |
+| ROWID      | Primary key                               |
+| guid       | Unique identifier                         |
+| text       | Message content (NULL if attachment-only) |
+| handle_id  | FK to handle.ROWID (NULL if is_from_me)   |
+| date       | Timestamp (Apple format, see below)       |
+| is_from_me | 1 = sent, 0 = received                    |
+| service    | "iMessage" or "SMS"                       |
 
 ### `chat_message_join` - Links messages to chats
-| Column | Description |
-|--------|-------------|
-| chat_id | FK to chat.ROWID |
+
+| Column     | Description         |
+| ---------- | ------------------- |
+| chat_id    | FK to chat.ROWID    |
 | message_id | FK to message.ROWID |
 
 ### `chat_handle_join` - Links participants to chats
-| Column | Description |
-|--------|-------------|
-| chat_id | FK to chat.ROWID |
+
+| Column    | Description        |
+| --------- | ------------------ |
+| chat_id   | FK to chat.ROWID   |
 | handle_id | FK to handle.ROWID |
 
 ### Apple Timestamp Conversion
@@ -210,8 +216,8 @@ const jsTimestamp = Math.floor(appleDate / 1_000_000) + APPLE_EPOCH_OFFSET_MS;
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/mymessage.git
-cd mymessage
+git clone https://github.com/yourusername/imessage-archive.git
+cd imessage-archive
 
 # Install dependencies
 npm install
@@ -246,12 +252,12 @@ npm run app
 
 ### Available Scripts
 
-| Script | Description |
-|--------|-------------|
-| `npm run dev` | Start Vite dev server + Electron (development) |
-| `npm run app` | Build everything, then launch Electron (production) |
-| `npm run build` | Build both frontend and backend |
-| `npm run lint` | Run ESLint |
+| Script          | Description                                         |
+| --------------- | --------------------------------------------------- |
+| `npm run dev`   | Start Vite dev server + Electron (development)      |
+| `npm run app`   | Build everything, then launch Electron (production) |
+| `npm run build` | Build both frontend and backend                     |
+| `npm run lint`  | Run ESLint                                          |
 
 ### Rebuilding Native Modules
 
@@ -271,8 +277,8 @@ Fetch paginated conversation list.
 
 ```typescript
 type Options = {
-  limit?: number;   // Default: 50
-  offset?: number;  // Default: 0
+  limit?: number; // Default: 50
+  offset?: number; // Default: 0
 };
 
 type Result = {
@@ -287,9 +293,9 @@ Fetch messages for a conversation with cursor pagination.
 
 ```typescript
 type Options = {
-  chatId: number;        // Required: conversation ROWID
-  limit?: number;        // Default: 50
-  beforeDate?: number;   // Cursor: JS timestamp for pagination
+  chatId: number; // Required: conversation ROWID
+  limit?: number; // Default: 50
+  beforeDate?: number; // Cursor: JS timestamp for pagination
 };
 
 type Result = {
@@ -322,8 +328,8 @@ type Result = {
 ```typescript
 type Handle = {
   rowid: number;
-  id: string;              // Phone or email
-  service: string;         // "iMessage" | "SMS"
+  id: string; // Phone or email
+  service: string; // "iMessage" | "SMS"
 };
 
 type Conversation = {
@@ -331,7 +337,7 @@ type Conversation = {
   guid: string;
   chatIdentifier: string;
   displayName: string | null;
-  style: number;           // 43 = group, 45 = DM
+  style: number; // 43 = group, 45 = DM
   isGroup: boolean;
   lastMessageDate: number; // JS timestamp (ms)
   lastMessageText: string | null;
@@ -343,7 +349,7 @@ type Message = {
   guid: string;
   text: string | null;
   handleId: number | null;
-  date: number;            // JS timestamp (ms)
+  date: number; // JS timestamp (ms)
   isFromMe: boolean;
   service: string;
   senderHandle?: Handle;
@@ -355,6 +361,7 @@ type Message = {
 ### "Database not initialized" error
 
 The app couldn't open chat.db. Check:
+
 1. `chat.db` exists in the `data/` directory
 2. File permissions allow reading
 3. Database isn't locked by another process
@@ -366,6 +373,7 @@ NODE_MODULE_VERSION X. This version of Node.js requires NODE_MODULE_VERSION Y.
 ```
 
 Rebuild native modules:
+
 ```bash
 npx @electron/rebuild
 ```
@@ -373,6 +381,7 @@ npx @electron/rebuild
 ### "exports is not defined" error
 
 The `dist-app/package.json` file is missing. Run:
+
 ```bash
 npm run build
 ```

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-MyMessage is a local-only iMessage archive viewer for macOS built with Electron, React, and SQLite. It reads from a local database copy (`data/chat.db`) in read-only mode.
+iMessage Archive is a local-only iMessage archive viewer for macOS built with Electron, React, and SQLite. It reads from a local database copy (`data/chat.db`) in read-only mode.
 
 ## Development Commands
 
