@@ -4,8 +4,13 @@ import {
   getGalleryStats,
   getAttachmentMetadata,
   getGalleryDateIndex,
+  getGalleryAround,
 } from "./queries";
-import type { GalleryQueryOptions, GalleryStatsOptions } from "./types";
+import type {
+  GalleryQueryOptions,
+  GalleryStatsOptions,
+  GetGalleryAroundOptions,
+} from "./types";
 
 // Register gallery-related IPC handlers.
 export function registerGalleryHandlers(): void {
@@ -38,6 +43,14 @@ export function registerGalleryHandlers(): void {
     "gallery:get-date-index",
     async (_event, { chatId }: { chatId: number }) => {
       return getGalleryDateIndex(chatId);
+    }
+  );
+
+  // Get gallery attachments centered around a target date for navigation
+  handleWithTiming(
+    "gallery:get-around",
+    async (_event, options: GetGalleryAroundOptions) => {
+      return getGalleryAround(options);
     }
   );
 }

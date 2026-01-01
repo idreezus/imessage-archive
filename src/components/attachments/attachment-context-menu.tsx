@@ -1,5 +1,5 @@
 import { memo, useCallback, useState, type ReactNode } from 'react';
-import { Download, Folder, Share, Info } from 'lucide-react';
+import { Download, Folder, Share, Info, MessageSquare } from 'lucide-react';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -14,13 +14,26 @@ import { getDisplayName } from '@/lib/attachments';
 type AttachmentContextMenuProps = {
   attachment: Attachment;
   children: ReactNode;
+  // Optional props for "Find in Chat" navigation (used in gallery view)
+  chatId?: number;
+  messageId?: number;
+  onFindInChat?: (chatId: number, messageId: number) => void;
 };
 
 export const AttachmentContextMenu = memo(function AttachmentContextMenu({
   attachment,
   children,
+  chatId,
+  messageId,
+  onFindInChat,
 }: AttachmentContextMenuProps) {
   const [isInfoOpen, setIsInfoOpen] = useState(false);
+
+  const handleFindInChat = useCallback(() => {
+    if (chatId && messageId && onFindInChat) {
+      onFindInChat(chatId, messageId);
+    }
+  }, [chatId, messageId, onFindInChat]);
 
   const handleDownload = useCallback(async () => {
     if (!attachment.localPath) return;
@@ -88,6 +101,15 @@ export const AttachmentContextMenu = memo(function AttachmentContextMenu({
             <Share className="size-4" />
             Share
           </ContextMenuItem>
+          {chatId && messageId && onFindInChat && (
+            <>
+              <ContextMenuSeparator />
+              <ContextMenuItem onClick={handleFindInChat}>
+                <MessageSquare className="size-4" />
+                Find in Chat
+              </ContextMenuItem>
+            </>
+          )}
           <ContextMenuSeparator />
           <ContextMenuItem onClick={() => setIsInfoOpen(true)}>
             <Info className="size-4" />

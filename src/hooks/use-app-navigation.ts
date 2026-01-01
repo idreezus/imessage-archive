@@ -9,6 +9,7 @@ type UseAppNavigationReturn = {
   setSelectedConversation: (conversation: Conversation | null) => void;
   navigationTarget: NavigationTarget | null;
   handleSearchResultClick: (result: SearchResultItem) => Promise<void>;
+  handleFindInChat: (chatId: number, messageId: number) => Promise<void>;
   handleNavigationComplete: () => void;
 };
 
@@ -62,6 +63,34 @@ export function useAppNavigation(): UseAppNavigationReturn {
     []
   );
 
+  // Handle "Find in Chat" from gallery - closes gallery and navigates to message
+  const handleFindInChat = useCallback(
+    async (chatId: number, messageId: number) => {
+      try {
+        // Close gallery first
+        gallery.closeGallery();
+
+        // Load conversation if different from current
+        if (!selectedConversation || selectedConversation.rowid !== chatId) {
+          const conversation =
+            await window.electronAPI.getConversationById(chatId);
+          if (conversation) {
+            setSelectedConversation(conversation);
+          }
+        }
+
+        // Set navigation target to the message
+        setNavigationTarget({
+          type: 'rowId',
+          rowId: messageId,
+        });
+      } catch (error) {
+        console.error('Failed to navigate to message:', error);
+      }
+    },
+    [gallery, selectedConversation]
+  );
+
   // Clear navigation target after navigation completes
   const handleNavigationComplete = useCallback(() => {
     setNavigationTarget(null);
@@ -72,6 +101,7 @@ export function useAppNavigation(): UseAppNavigationReturn {
     setSelectedConversation,
     navigationTarget,
     handleSearchResultClick,
+    handleFindInChat,
     handleNavigationComplete,
   };
 }

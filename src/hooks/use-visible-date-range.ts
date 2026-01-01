@@ -1,10 +1,10 @@
 import { useState, useCallback, useRef } from 'react';
 import type { ListRange } from 'react-virtuoso';
 import type { Message } from '@/types';
-import type { GalleryGridItem } from '@/types/gallery';
+import type { GalleryAttachment } from '@/types/gallery';
 
 type UseVisibleDateRangeOptions = {
-  items: Message[] | GalleryGridItem[];
+  items: Message[] | GalleryAttachment[];
   source: 'messages' | 'gallery';
 };
 
@@ -15,14 +15,13 @@ type UseVisibleDateRangeReturn = {
 
 // Extract date from item based on source type
 function getItemDate(
-  item: Message | GalleryGridItem,
+  item: Message | GalleryAttachment,
   source: 'messages' | 'gallery'
 ): number | null {
   if (source === 'messages') {
     return (item as Message).date;
   }
-  const gridItem = item as GalleryGridItem;
-  return gridItem.type === 'attachment' ? gridItem.data.date : null;
+  return (item as GalleryAttachment).date;
 }
 
 // Convert date to monthKey format "YYYY-MM"

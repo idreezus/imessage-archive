@@ -1,3 +1,4 @@
+import path from "path";
 import { getDatabaseInstance } from "../database/connection";
 import {
   appleToJsTimestamp,
@@ -16,6 +17,8 @@ import type {
   GalleryStatsOptions,
   GalleryAttachmentRow,
   AttachmentMetadata,
+  GetGalleryAroundOptions,
+  GetGalleryAroundResult,
 } from "./types";
 
 const DEFAULT_LIMIT = 50;
@@ -82,10 +85,10 @@ function buildOrderByClause(options: GalleryQueryOptions): string {
 // Transform database row to GalleryAttachment
 function rowToGalleryAttachment(row: GalleryAttachmentRow): GalleryAttachment {
   const jsDate = appleToJsTimestamp(row.messageDate);
-  const date = new Date(jsDate);
 
   return {
     rowid: row.rowid,
+    messageId: row.messageId,
     guid: row.guid,
     filename: row.filename,
     mimeType: row.mimeType,
@@ -104,13 +107,12 @@ function rowToGalleryAttachment(row: GalleryAttachmentRow): GalleryAttachment {
       isSticker: row.isSticker,
       transferState: 0,
       isAudioMessage: row.isAudioMessage,
-      messageId: 0,
+      messageId: row.messageId,
     }),
     date: jsDate,
     isFromMe: row.isFromMe === 1,
     chatId: row.chatId,
     chatDisplayName: row.chatDisplayName,
-    monthKey: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`,
   };
 }
 
@@ -165,6 +167,7 @@ export function getGalleryAttachments(
   const query = `
     SELECT
       a.ROWID as rowid,
+      maj.message_id as messageId,
       a.guid,
       a.filename,
       a.mime_type as mimeType,
@@ -249,6 +252,7 @@ export function getGalleryStats(options: GalleryStatsOptions): GalleryStats {
   const query = `
     SELECT
       a.ROWID as rowid,
+      maj.message_id as messageId,
       a.guid,
       a.filename,
       a.mime_type as mimeType,
@@ -376,12 +380,7 @@ export function getAttachmentMetadata(
     senderHandle: row.senderHandle,
     chatDisplayName: row.chatDisplayName,
     absolutePath: localPath
-      ? require("path").join(
-          process.cwd(),
-          "data",
-          "attachments",
-          localPath
-        )
+      ? path.join(process.cwd(), "data", "attachments", localPath)
       : null,
   };
 }
@@ -448,5 +447,140 @@ export function getGalleryDateIndex(
     entries,
     totalMonths: entries.length,
     totalYears: years.size,
+  };
+}
+
+// Fetch gallery attachments centered around a target date for timeline navigation.
+// Returns attachments before and after the target with hasMore indicators.
+export function getGalleryAround(
+  options: GetGalleryAroundOptions
+): GetGalleryAroundResult {
+  const { chatId, target, contextCount = 50, types, direction } = options;
+  const db = getDatabaseInstance();
+  const timer = startTimer("db", "getGalleryAround");
+
+  // Convert JS timestamp to Apple timestamp
+  const targetAppleDate = jsToAppleTimestamp(target.date);
+
+  // Build direction filter
+  let directionCondition = "";
+  if (direction === "sent") {
+    directionCondition = "AND m.is_from_me = 1";
+  } else if (direction === "received") {
+    directionCondition = "AND m.is_from_me = 0";
+  }
+
+  // Query for attachments before target (inclusive, DESC order)
+  const beforeQuery = `
+    SELECT
+      a.ROWID as rowid,
+      maj.message_id as messageId,
+      a.guid,
+      a.filename,
+      a.mime_type as mimeType,
+      a.uti,
+      a.transfer_name as transferName,
+      a.total_bytes as totalBytes,
+      a.is_sticker as isSticker,
+      m.is_audio_message as isAudioMessage,
+      cmj.message_date as messageDate,
+      m.is_from_me as isFromMe,
+      cmj.chat_id as chatId,
+      c.display_name as chatDisplayName
+    FROM attachment a
+    JOIN message_attachment_join maj ON a.ROWID = maj.attachment_id
+    JOIN message m ON maj.message_id = m.ROWID
+    JOIN chat_message_join cmj ON m.ROWID = cmj.message_id
+    JOIN chat c ON cmj.chat_id = c.ROWID
+    WHERE cmj.chat_id = ?
+      AND cmj.message_date <= ?
+      AND a.hide_attachment = 0
+      AND a.transfer_state IN (0, 5)
+      ${directionCondition}
+    ORDER BY cmj.message_date DESC
+    LIMIT ?
+  `;
+
+  // Query for attachments after target (exclusive, ASC order)
+  const afterQuery = `
+    SELECT
+      a.ROWID as rowid,
+      maj.message_id as messageId,
+      a.guid,
+      a.filename,
+      a.mime_type as mimeType,
+      a.uti,
+      a.transfer_name as transferName,
+      a.total_bytes as totalBytes,
+      a.is_sticker as isSticker,
+      m.is_audio_message as isAudioMessage,
+      cmj.message_date as messageDate,
+      m.is_from_me as isFromMe,
+      cmj.chat_id as chatId,
+      c.display_name as chatDisplayName
+    FROM attachment a
+    JOIN message_attachment_join maj ON a.ROWID = maj.attachment_id
+    JOIN message m ON maj.message_id = m.ROWID
+    JOIN chat_message_join cmj ON m.ROWID = cmj.message_id
+    JOIN chat c ON cmj.chat_id = c.ROWID
+    WHERE cmj.chat_id = ?
+      AND cmj.message_date > ?
+      AND a.hide_attachment = 0
+      AND a.transfer_state IN (0, 5)
+      ${directionCondition}
+    ORDER BY cmj.message_date ASC
+    LIMIT ?
+  `;
+
+  // Fetch contextCount + 1 to detect hasMore
+  const beforeRows = db
+    .prepare(beforeQuery)
+    .all(chatId, targetAppleDate, contextCount + 1) as GalleryAttachmentRow[];
+  const afterRows = db
+    .prepare(afterQuery)
+    .all(chatId, targetAppleDate, contextCount + 1) as GalleryAttachmentRow[];
+
+  // Detect hasMore
+  const hasMoreBefore = beforeRows.length > contextCount;
+  const hasMoreAfter = afterRows.length > contextCount;
+
+  // Trim to contextCount
+  const trimmedBefore = hasMoreBefore
+    ? beforeRows.slice(0, contextCount)
+    : beforeRows;
+  const trimmedAfter = hasMoreAfter
+    ? afterRows.slice(0, contextCount)
+    : afterRows;
+
+  // Combine in chronological order (reverse before, concat after)
+  const allRows = [...trimmedBefore.reverse(), ...trimmedAfter];
+
+  // Transform to attachments and filter by type
+  let attachments = allRows.map(rowToGalleryAttachment);
+  if (types?.length) {
+    attachments = attachments.filter((a) => matchesTypeFilter(a, types));
+  }
+
+  // Calculate targetIndex - first attachment at or after target date
+  let targetIndex = 0;
+  for (let i = 0; i < attachments.length; i++) {
+    if (attachments[i].date >= target.date) {
+      targetIndex = i;
+      break;
+    }
+  }
+
+  timer.end({
+    count: attachments.length,
+    targetIndex,
+    hasMoreBefore,
+    hasMoreAfter,
+  });
+
+  return {
+    attachments,
+    targetIndex,
+    found: attachments.length > 0,
+    hasMore: { before: hasMoreBefore, after: hasMoreAfter },
   };
 }

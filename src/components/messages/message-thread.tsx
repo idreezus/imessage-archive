@@ -104,12 +104,10 @@ export function MessageThread({
     source: 'messages',
   });
 
-  // Timeline navigation - delegates to useMessageNavigation for messages
+  // Timeline navigation - delegates to useMessageNavigation
   const { scrollToDate } = useTimelineNavigation({
     virtuosoRef,
     dateIndex,
-    items: messages,
-    source: 'messages',
     chatId: conversation?.rowid ?? null,
     navigateTo,
   });

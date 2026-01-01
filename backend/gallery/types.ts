@@ -19,6 +19,7 @@ export type GalleryQueryOptions = {
 // Gallery attachment with message context
 export type GalleryAttachment = {
   rowid: number;
+  messageId: number; // Message ROWID for navigation
   guid: string;
   filename: string | null;
   mimeType: string | null;
@@ -31,7 +32,6 @@ export type GalleryAttachment = {
   isFromMe: boolean;
   chatId: number;
   chatDisplayName: string | null;
-  monthKey: string; // "2024-12" for grouping
 };
 
 // Gallery query response
@@ -94,6 +94,7 @@ export type AttachmentMetadata = {
 // Gallery attachment row from database query (internal)
 export type GalleryAttachmentRow = {
   rowid: number;
+  messageId: number; // Message ROWID from join table
   guid: string;
   filename: string | null;
   mimeType: string | null;
@@ -108,4 +109,21 @@ export type GalleryAttachmentRow = {
   chatDisplayName: string | null;
   createdDate: number | null; // Apple timestamp
   senderHandle: string | null;
+};
+
+// Options for getGalleryAround navigation query
+export type GetGalleryAroundOptions = {
+  chatId: number;
+  target: { type: "date"; date: number };
+  contextCount?: number;
+  types?: AttachmentType[];
+  direction?: "all" | "sent" | "received";
+};
+
+// Result from getGalleryAround query
+export type GetGalleryAroundResult = {
+  attachments: GalleryAttachment[];
+  targetIndex: number;
+  found: boolean;
+  hasMore: { before: boolean; after: boolean };
 };

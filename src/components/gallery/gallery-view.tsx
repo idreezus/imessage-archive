@@ -5,86 +5,25 @@ import {
   type ListRange,
   type ScrollSeekConfiguration,
 } from 'react-virtuoso';
-import { useRenderTiming, measureSync, log } from '@/lib/perf';
+import { useRenderTiming, log } from '@/lib/perf';
 import { useGalleryContext } from './gallery-context';
 import { GalleryHeader } from './gallery-header';
 import { GalleryThumbnail } from './gallery-thumbnail';
-import { GalleryMonthHeader } from './gallery-month-header';
 import { GalleryEmpty } from './gallery-empty';
 import { Lightbox } from '@/components/lightbox';
 import { TimelineScrubber } from '@/components/timeline';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useDateIndex } from '@/hooks/use-date-index';
 import { useVisibleDateRange } from '@/hooks/use-visible-date-range';
-import type {
-  GalleryAttachment,
-  GalleryGridItem,
-  MonthGroup,
-} from '@/types/gallery';
+import type { GalleryAttachment } from '@/types/gallery';
 import type { TimelineTick } from '@/types/timeline';
 
 // Context type for VirtuosoGrid - passed to itemContent and custom components
 type GalleryGridContext = {
-  gridItems: GalleryGridItem[];
+  attachments: GalleryAttachment[];
   hasMore: boolean;
   onThumbnailClick: (index: number) => void;
 };
-
-// Format month key to display label
-function formatMonthLabel(monthKey: string): string {
-  const [year, month] = monthKey.split('-').map(Number);
-  const date = new Date(year, month - 1);
-  return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-}
-
-// Group attachments by month for chat-scoped view
-function groupByMonth(attachments: GalleryAttachment[]): MonthGroup[] {
-  const groups = new Map<string, GalleryAttachment[]>();
-
-  for (const attachment of attachments) {
-    const existing = groups.get(attachment.monthKey) || [];
-    existing.push(attachment);
-    groups.set(attachment.monthKey, existing);
-  }
-
-  let startIndex = 0;
-  return Array.from(groups.entries()).map(([key, items]) => {
-    const group: MonthGroup = {
-      monthKey: key,
-      label: formatMonthLabel(key),
-      attachments: items,
-      startIndex,
-    };
-    startIndex += items.length + 1; // +1 for header
-    return group;
-  });
-}
-
-// Flatten groups to grid items (headers + attachments)
-function flattenToGridItems(
-  attachments: GalleryAttachment[],
-  showMonthHeaders: boolean
-): GalleryGridItem[] {
-  if (!showMonthHeaders) {
-    return attachments.map((data) => ({ type: 'attachment', data }));
-  }
-
-  const groups = groupByMonth(attachments);
-  const items: GalleryGridItem[] = [];
-
-  for (const group of groups) {
-    items.push({
-      type: 'header',
-      monthKey: group.monthKey,
-      label: group.label,
-    });
-    for (const attachment of group.attachments) {
-      items.push({ type: 'attachment', data: attachment });
-    }
-  }
-
-  return items;
-}
 
 // Loading skeleton grid - uses same CSS classes as VirtuosoGrid for consistency
 function LoadingSkeleton() {
@@ -124,13 +63,22 @@ const scrollSeekConfig: ScrollSeekConfiguration = {
   exit: (velocity) => Math.abs(velocity) < 100,
 };
 
-export const GalleryView = memo(function GalleryView() {
+type GalleryViewProps = {
+  onFindInChat?: (chatId: number, messageId: number) => void;
+};
+
+export const GalleryView = memo(function GalleryView({
+  onFindInChat,
+}: GalleryViewProps) {
   const {
     attachments,
     stats,
     isLoading,
     hasMore,
+    hasMoreBefore,
     loadMore,
+    loadEarlier,
+    navigateToDate,
     chatId,
     chatDisplayName,
     closeGallery,
@@ -144,23 +92,11 @@ export const GalleryView = memo(function GalleryView() {
   // VirtuosoGrid ref for programmatic scrolling
   const virtuosoGridRef = useRef<VirtuosoGridHandle>(null);
 
-  // Show month headers for chat-scoped view
-  const showMonthHeaders = chatId !== null;
   const isGlobalView = chatId === null;
-
-  // Flatten attachments to grid items
-  const gridItems = useMemo(
-    () =>
-      measureSync('gallery.flattenToGridItems', () =>
-        flattenToGridItems(attachments, showMonthHeaders)
-      ),
-    [attachments, showMonthHeaders]
-  );
 
   // Track render performance
   useRenderTiming('GalleryView', {
     attachmentCount: attachments.length,
-    gridItemCount: gridItems.length,
     isGlobalView,
   });
 
@@ -172,24 +108,22 @@ export const GalleryView = memo(function GalleryView() {
 
   const { visibleMonthKey, handleRangeChanged: handleVisibleRangeChanged } =
     useVisibleDateRange({
-      items: gridItems,
+      items: attachments,
       source: 'gallery',
     });
 
-  // Handle timeline tick click - scroll to month header
+  // Handle timeline tick click - navigate to date using API
   const handleTimelineTickClick = useCallback(
-    (tick: TimelineTick) => {
-      const targetIndex = gridItems.findIndex(
-        (item) => item.type === 'header' && item.monthKey === tick.key
-      );
-      if (targetIndex !== -1 && virtuosoGridRef.current) {
+    async (tick: TimelineTick) => {
+      const targetIndex = await navigateToDate(tick.date);
+      if (targetIndex !== undefined && virtuosoGridRef.current) {
         virtuosoGridRef.current.scrollToIndex({
           index: targetIndex,
           align: 'start',
         });
       }
     },
-    [gridItems]
+    [navigateToDate]
   );
 
   // Convert attachments to lightbox format
@@ -213,28 +147,35 @@ export const GalleryView = memo(function GalleryView() {
 
   // Handle thumbnail click
   const handleThumbnailClick = useCallback(
-    (gridIndex: number) => {
-      const item = gridItems[gridIndex];
-      if (item.type !== 'attachment') return;
+    (index: number) => {
+      const attachment = attachments[index];
+      if (!attachment) return;
 
       // Find index in media-only array for lightbox
       const mediaIndex = lightboxAttachments.findIndex(
-        (a) => a.rowid === item.data.rowid
+        (a) => a.rowid === attachment.rowid
       );
 
       if (mediaIndex !== -1) {
         openLightbox(mediaIndex);
       }
     },
-    [gridItems, lightboxAttachments, openLightbox]
+    [attachments, lightboxAttachments, openLightbox]
   );
 
-  // Handle load more
+  // Handle load more (scroll down)
   const handleEndReached = useCallback(() => {
     if (hasMore && !isLoading) {
       loadMore();
     }
   }, [hasMore, isLoading, loadMore]);
+
+  // Handle load earlier (scroll up) - bidirectional scrolling
+  const handleStartReached = useCallback(() => {
+    if (hasMoreBefore && !isLoading) {
+      loadEarlier();
+    }
+  }, [hasMoreBefore, isLoading, loadEarlier]);
 
   // Track scroll range changes for performance analysis and timeline scrubber
   const lastRangeRef = useRef<ListRange | null>(null);
@@ -249,7 +190,7 @@ export const GalleryView = memo(function GalleryView() {
           startIndex: range.startIndex,
           endIndex: range.endIndex,
           itemsVisible: itemsInRange,
-          totalItems: gridItems.length,
+          totalItems: attachments.length,
           rangeChanges: rangeChangeCountRef.current,
         });
       }
@@ -258,26 +199,24 @@ export const GalleryView = memo(function GalleryView() {
       // Update timeline scrubber visible range
       handleVisibleRangeChanged(range);
     },
-    [gridItems.length, handleVisibleRangeChanged]
+    [attachments.length, handleVisibleRangeChanged]
   );
 
   // Render grid item
   const renderItem = useCallback(
     (index: number) => {
-      const item = gridItems[index];
-
-      if (item.type === 'header') {
-        return <GalleryMonthHeader label={item.label} />;
-      }
+      const attachment = attachments[index];
+      if (!attachment) return null;
 
       return (
         <GalleryThumbnail
-          attachment={item.data}
+          attachment={attachment}
           onClick={() => handleThumbnailClick(index)}
+          onFindInChat={onFindInChat}
         />
       );
     },
-    [gridItems, handleThumbnailClick]
+    [attachments, handleThumbnailClick, onFindInChat]
   );
 
   // Initial loading state
@@ -325,21 +264,20 @@ export const GalleryView = memo(function GalleryView() {
       <div className="flex-1 overflow-hidden relative">
         <VirtuosoGrid
           ref={virtuosoGridRef}
-          totalCount={gridItems.length}
+          totalCount={attachments.length}
           itemContent={renderItem}
           listClassName="gallery-grid"
           itemClassName="gallery-grid-item"
           overscan={12}
+          startReached={handleStartReached}
           endReached={handleEndReached}
           rangeChanged={handleRangeChanged}
           scrollSeekConfiguration={scrollSeekConfig}
           style={{ height: '100%' }}
-          context={{ gridItems, hasMore, onThumbnailClick: handleThumbnailClick }}
+          context={{ attachments, hasMore, onThumbnailClick: handleThumbnailClick }}
           computeItemKey={(index, _data, ctx) => {
-            const item = ctx.gridItems[index];
-            return item.type === 'header'
-              ? `header-${item.monthKey}`
-              : `att-${item.data.rowid}`;
+            const attachment = ctx.attachments[index];
+            return attachment ? `att-${attachment.rowid}` : `att-${index}`;
           }}
           components={{
             ScrollSeekPlaceholder,

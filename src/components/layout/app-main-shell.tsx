@@ -8,19 +8,21 @@ type AppMainShellProps = {
   conversation: Conversation | null;
   navigationTarget: NavigationTarget | null;
   onNavigationComplete: () => void;
+  onFindInChat: (chatId: number, messageId: number) => void;
 };
 
 export function AppMainShell({
   conversation,
   navigationTarget,
   onNavigationComplete,
+  onFindInChat,
 }: AppMainShellProps) {
   const gallery = useGalleryContext();
 
   return (
     <SidebarInset>
       {gallery.isGalleryOpen ? (
-        <GalleryView />
+        <GalleryView onFindInChat={onFindInChat} />
       ) : (
         <MessageThread
           conversation={conversation}

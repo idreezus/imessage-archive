@@ -111,8 +111,14 @@ type GalleryContextValue = {
   isLoading: boolean;
   error: Error | null;
   hasMore: boolean;
+  hasMoreBefore: boolean;
   loadMore: () => void;
+  loadEarlier: () => void;
   refresh: () => void;
+
+  // Navigation
+  isNavigating: boolean;
+  navigateToDate: (date: number) => Promise<number | undefined>;
 
   // Lightbox
   lightboxOpen: boolean;
@@ -154,6 +160,10 @@ export function GalleryProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [hasMore, setHasMore] = useState(false);
+  const [hasMoreBefore, setHasMoreBefore] = useState(false);
+
+  // Navigation state
+  const [isNavigating, setIsNavigating] = useState(false);
 
   // Lightbox
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -346,6 +356,68 @@ export function GalleryProvider({ children }: { children: ReactNode }) {
     );
   }, [filters, chatId, sortBy, sortOrder, hasMore, isLoading, executeGalleryFetch]);
 
+  // Load earlier attachments (for bidirectional scrolling)
+  const loadEarlier = useCallback(async () => {
+    if (!hasMoreBefore || isLoading || !chatId || attachments.length === 0) return;
+
+    const earliestDate = attachments[0]?.date;
+    if (!earliestDate) return;
+
+    setIsLoading(true);
+    try {
+      const result = await window.electronAPI.getGalleryAround({
+        chatId,
+        target: { type: 'date', date: earliestDate - 1 },
+        contextCount: 50,
+        types: filters.types === 'all' ? undefined : filters.types,
+        direction: filters.direction !== 'all' ? filters.direction : undefined,
+      });
+
+      // Prepend new attachments (they come in chronological order)
+      setAttachments((prev) => [...result.attachments, ...prev]);
+      setHasMoreBefore(result.hasMore.before);
+    } catch (err) {
+      console.error('Failed to load earlier attachments:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [hasMoreBefore, isLoading, chatId, attachments, filters]);
+
+  // Navigate to a specific date using getGalleryAround API
+  const navigateToDate = useCallback(
+    async (date: number): Promise<number | undefined> => {
+      if (!chatId || isNavigating) return undefined;
+
+      setIsNavigating(true);
+      try {
+        const result = await window.electronAPI.getGalleryAround({
+          chatId,
+          target: { type: 'date', date },
+          contextCount: 50,
+          types: filters.types === 'all' ? undefined : filters.types,
+          direction: filters.direction !== 'all' ? filters.direction : undefined,
+        });
+
+        // Replace current attachments with navigation result
+        setAttachments(result.attachments);
+        setHasMoreBefore(result.hasMore.before);
+        setHasMore(result.hasMore.after);
+
+        // Clear cache since we're jumping to a new position
+        cacheRef.current.clear();
+        currentOffsetRef.current = result.attachments.length;
+
+        return result.targetIndex;
+      } catch (err) {
+        console.error('Navigation failed:', err);
+        return undefined;
+      } finally {
+        setIsNavigating(false);
+      }
+    },
+    [chatId, isNavigating, filters]
+  );
+
   const refresh = useCallback(() => {
     cacheRef.current.clear();
     if (isGalleryOpen) {
@@ -428,8 +500,12 @@ export function GalleryProvider({ children }: { children: ReactNode }) {
     isLoading,
     error,
     hasMore,
+    hasMoreBefore,
     loadMore,
+    loadEarlier,
     refresh,
+    isNavigating,
+    navigateToDate,
     lightboxOpen,
     lightboxIndex,
     openLightbox,

@@ -56,6 +56,14 @@ type GalleryStatsOptions = {
   dateTo?: number;
 };
 
+type GetGalleryAroundOptions = {
+  chatId: number;
+  target: { type: "date"; date: number };
+  contextCount?: number;
+  types?: AttachmentType[];
+  direction?: "all" | "sent" | "received";
+};
+
 type DownloadAttachmentOptions = {
   localPath: string;
   suggestedFilename: string;
@@ -127,6 +135,9 @@ const electronAPI = {
 
   getGalleryDateIndex: (chatId: number) =>
     ipcRenderer.invoke("gallery:get-date-index", { chatId }),
+
+  getGalleryAround: (options: GetGalleryAroundOptions) =>
+    ipcRenderer.invoke("gallery:get-around", options),
 
   downloadAttachment: (options: DownloadAttachmentOptions) =>
     ipcRenderer.invoke("attachments:download", options),

@@ -20,6 +20,8 @@ import type {
   DownloadAttachmentOptions,
   DownloadResult,
   AttachmentMetadata,
+  GetGalleryAroundOptions,
+  GetGalleryAroundResult,
 } from './gallery';
 import type { DateIndexResponse } from './timeline';
 
@@ -93,6 +95,9 @@ export type ElectronAPI = {
   // Timeline scrubber date index API
   getDateIndex: (chatId: number) => Promise<DateIndexResponse>;
   getGalleryDateIndex: (chatId: number) => Promise<DateIndexResponse>;
+
+  // Gallery navigation API
+  getGalleryAround: (options: GetGalleryAroundOptions) => Promise<GetGalleryAroundResult>;
 
   // Indexing API
   getUnindexedCount: () => Promise<number>;

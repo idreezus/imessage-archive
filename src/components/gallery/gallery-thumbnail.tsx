@@ -10,11 +10,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 type GalleryThumbnailProps = {
   attachment: GalleryAttachment;
   onClick: () => void;
+  onFindInChat?: (chatId: number, messageId: number) => void;
 };
 
 export const GalleryThumbnail = memo(function GalleryThumbnail({
   attachment,
   onClick,
+  onFindInChat,
 }: GalleryThumbnailProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -94,7 +96,12 @@ export const GalleryThumbnail = memo(function GalleryThumbnail({
   // Error or non-media type - show icon
   if (error || !thumbnailUrl) {
     return (
-      <AttachmentContextMenu attachment={contextMenuAttachment}>
+      <AttachmentContextMenu
+        attachment={contextMenuAttachment}
+        chatId={attachment.chatId}
+        messageId={attachment.messageId}
+        onFindInChat={onFindInChat}
+      >
         <button
           onClick={onClick}
           className="w-full h-full rounded-lg overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-primary hover:opacity-80 transition-opacity"
@@ -107,7 +114,12 @@ export const GalleryThumbnail = memo(function GalleryThumbnail({
 
   // Image/video thumbnail with skeleton-first loading
   return (
-    <AttachmentContextMenu attachment={contextMenuAttachment}>
+    <AttachmentContextMenu
+      attachment={contextMenuAttachment}
+      chatId={attachment.chatId}
+      messageId={attachment.messageId}
+      onFindInChat={onFindInChat}
+    >
       <button
         onClick={onClick}
         className="relative w-full h-full rounded-lg overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-primary hover:opacity-90 transition-opacity"

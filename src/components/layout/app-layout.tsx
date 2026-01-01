@@ -11,6 +11,7 @@ function AppLayoutInner() {
     setSelectedConversation,
     navigationTarget,
     handleSearchResultClick,
+    handleFindInChat,
     handleNavigationComplete,
   } = useAppNavigation();
 
@@ -25,6 +26,7 @@ function AppLayoutInner() {
         conversation={selectedConversation}
         navigationTarget={navigationTarget}
         onNavigationComplete={handleNavigationComplete}
+        onFindInChat={handleFindInChat}
       />
     </SidebarProvider>
   );
