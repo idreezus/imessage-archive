@@ -2,17 +2,18 @@ import { SidebarInset } from '@/components/ui/sidebar';
 import { MessageThread } from '@/components/messages/message-thread';
 import { GalleryView, useGalleryContext } from '@/components/gallery';
 import type { Conversation } from '@/types';
+import type { NavigationTarget } from '@/types/navigation';
 
 type AppMainShellProps = {
   conversation: Conversation | null;
-  targetMessageRowid: number | null;
-  onScrollComplete: () => void;
+  navigationTarget: NavigationTarget | null;
+  onNavigationComplete: () => void;
 };
 
 export function AppMainShell({
   conversation,
-  targetMessageRowid,
-  onScrollComplete,
+  navigationTarget,
+  onNavigationComplete,
 }: AppMainShellProps) {
   const gallery = useGalleryContext();
 
@@ -23,8 +24,8 @@ export function AppMainShell({
       ) : (
         <MessageThread
           conversation={conversation}
-          targetMessageRowid={targetMessageRowid}
-          onScrollComplete={onScrollComplete}
+          navigationTarget={navigationTarget}
+          onNavigationComplete={onNavigationComplete}
           onOpenGallery={(chatId, chatName) =>
             gallery.openGallery(chatId, chatName)
           }

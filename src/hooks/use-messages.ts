@@ -19,6 +19,8 @@ type UseMessagesReturn = {
   loadedChatId: number | null;
   /** Starting index for virtuoso firstItemIndex prop (decreases when prepending) */
   firstItemIndex: number;
+  /** Setter for firstItemIndex (used by navigation to reset scroll position) */
+  setFirstItemIndex: React.Dispatch<React.SetStateAction<number>>;
 };
 
 // Cache for previously loaded messages - persists across hook instances
@@ -214,5 +216,6 @@ export function useMessages(options: UseMessagesOptions): UseMessagesReturn {
     setMessages,
     loadedChatId,
     firstItemIndex,
+    setFirstItemIndex,
   };
 }

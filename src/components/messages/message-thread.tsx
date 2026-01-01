@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback, useState } from 'react';
+import { useRef, useEffect, useCallback } from 'react';
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
 import { MessageSquare } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -15,13 +15,15 @@ import { useMessages } from '@/hooks/use-messages';
 import { useDateIndex } from '@/hooks/use-date-index';
 import { useVisibleDateRange } from '@/hooks/use-visible-date-range';
 import { useTimelineNavigation } from '@/hooks/use-timeline-navigation';
+import { useMessageNavigation } from '@/hooks/use-message-navigation';
 import { useRenderTiming } from '@/lib/perf';
 import type { Conversation } from '@/types';
+import type { NavigationTarget } from '@/types/navigation';
 
 type MessageThreadProps = {
   conversation: Conversation | null;
-  targetMessageRowid?: number | null;
-  onScrollComplete?: () => void;
+  navigationTarget?: NavigationTarget | null;
+  onNavigationComplete?: () => void;
   onOpenGallery?: (chatId: number, chatName: string) => void;
 };
 
@@ -56,11 +58,11 @@ const virtuosoComponents = {
   Header: MessageListHeader,
 };
 
-// Message thread panel displaying conversation messages with virtualized scrolling.
+// Message thread panel displaying conversation messages with virtualized scrolling
 export function MessageThread({
   conversation,
-  targetMessageRowid,
-  onScrollComplete,
+  navigationTarget,
+  onNavigationComplete,
   onOpenGallery,
 }: MessageThreadProps) {
   const {
@@ -71,6 +73,7 @@ export function MessageThread({
     setMessages,
     loadedChatId,
     firstItemIndex,
+    setFirstItemIndex,
   } = useMessages({
     chatId: conversation?.rowid ?? null,
   });
@@ -80,6 +83,15 @@ export function MessageThread({
 
   // Virtuoso ref for imperative scroll control
   const virtuosoRef = useRef<VirtuosoHandle>(null);
+
+  // Unified message navigation hook
+  const { navigateTo, isNavigating, highlightedRowId, initialScrollIndex } = useMessageNavigation({
+    virtuosoRef,
+    messages,
+    chatId: conversation?.rowid ?? null,
+    setMessages,
+    setFirstItemIndex,
+  });
 
   // Timeline scrubber hooks
   const { ticks, dateIndex } = useDateIndex({
@@ -92,13 +104,14 @@ export function MessageThread({
     source: 'messages',
   });
 
+  // Timeline navigation - delegates to useMessageNavigation for messages
   const { scrollToDate } = useTimelineNavigation({
     virtuosoRef,
     dateIndex,
     items: messages,
     source: 'messages',
     chatId: conversation?.rowid ?? null,
-    setMessages,
+    navigateTo,
   });
 
   // Handle timeline tick click
@@ -109,118 +122,31 @@ export function MessageThread({
     [scrollToDate]
   );
 
-  // State for highlighting target message after navigation
-  const [highlightedRowid, setHighlightedRowid] = useState<number | null>(null);
-  const [isLoadingTarget, setIsLoadingTarget] = useState(false);
-
   // Check if data is consistent (messages belong to current conversation)
   const isDataReady =
     conversation !== null && loadedChatId === conversation.rowid;
 
-  // Handle target message scrolling (search result navigation)
+  // Handle navigation target changes - trigger navigation and notify completion
   useEffect(() => {
-    if (!targetMessageRowid || !conversation || !isDataReady) return;
+    if (!navigationTarget || !conversation || !isDataReady) return;
 
-    const existingMessage = messages.find(
-      (m) => m.rowid === targetMessageRowid
-    );
+    let isCancelled = false;
 
-    if (existingMessage) {
-      // Message is already loaded - find index and scroll
-      const targetIndex = messages.findIndex(
-        (m) => m.rowid === targetMessageRowid
-      );
+    const performNavigation = async () => {
+      await navigateTo(navigationTarget);
 
-      if (targetIndex !== -1) {
-        // Use requestAnimationFrame to ensure virtuoso has rendered
-        requestAnimationFrame(() => {
-          virtuosoRef.current?.scrollToIndex({
-            index: targetIndex,
-            align: 'center',
-            behavior: 'auto',
-          });
-
-          setHighlightedRowid(targetMessageRowid);
-
-          const timer = setTimeout(() => {
-            setHighlightedRowid(null);
-            onScrollComplete?.();
-          }, 2000);
-
-          return () => clearTimeout(timer);
-        });
+      // Only notify completion if not cancelled
+      if (!isCancelled) {
+        onNavigationComplete?.();
       }
-    } else {
-      // Message not loaded, fetch messages around the target
-      setIsLoadingTarget(true);
+    };
 
-      window.electronAPI
-        .getMessagesAroundDate(conversation.rowid, Date.now(), 50)
-        .then((result) => {
-          const targetMessage = result.messages.find(
-            (m) => m.rowid === targetMessageRowid
-          );
+    performNavigation();
 
-          if (targetMessage) {
-            return window.electronAPI.getMessagesAroundDate(
-              conversation.rowid,
-              targetMessage.date,
-              50
-            );
-          }
-
-          return result;
-        })
-        .then((result) => {
-          if (result.messages.length > 0) {
-            setMessages(result.messages);
-
-            // After messages are set, scroll to target
-            requestAnimationFrame(() => {
-              const targetIndex = result.messages.findIndex(
-                (m) => m.rowid === targetMessageRowid
-              );
-
-              if (targetIndex !== -1) {
-                // Double RAF to ensure virtuoso has fully rendered new data
-                requestAnimationFrame(() => {
-                  virtuosoRef.current?.scrollToIndex({
-                    index: targetIndex,
-                    align: 'center',
-                    behavior: 'auto',
-                  });
-
-                  setHighlightedRowid(targetMessageRowid);
-
-                  setTimeout(() => {
-                    setHighlightedRowid(null);
-                    onScrollComplete?.();
-                  }, 2000);
-                });
-              } else {
-                onScrollComplete?.();
-              }
-            });
-          } else {
-            onScrollComplete?.();
-          }
-        })
-        .catch((error) => {
-          console.error('Failed to load messages around target:', error);
-          onScrollComplete?.();
-        })
-        .finally(() => {
-          setIsLoadingTarget(false);
-        });
-    }
-  }, [
-    targetMessageRowid,
-    conversation,
-    messages,
-    setMessages,
-    onScrollComplete,
-    isDataReady,
-  ]);
+    return () => {
+      isCancelled = true;
+    };
+  }, [navigationTarget, conversation, isDataReady, navigateTo, onNavigationComplete]);
 
   // Handle infinite scroll - load older messages when reaching top
   const handleStartReached = useCallback(() => {
@@ -242,12 +168,12 @@ export function MessageThread({
             message={message}
             showTimestamp={showTimestamp}
             isGroupChat={conversation?.isGroup ?? false}
-            isHighlighted={highlightedRowid === message.rowid}
+            isHighlighted={highlightedRowId === message.rowid}
           />
         </div>
       );
     },
-    [conversation?.isGroup, highlightedRowid, messages]
+    [conversation?.isGroup, highlightedRowId, messages]
   );
 
   // Empty state when no conversation selected
@@ -267,8 +193,8 @@ export function MessageThread({
     );
   }
 
-  // Loading state while fetching messages for new conversation
-  const showLoading = !isDataReady || isLoadingTarget;
+  // Loading state while fetching messages for new conversation or navigating
+  const showLoading = !isDataReady || isNavigating;
 
   return (
     <div className="flex flex-col h-full">
@@ -303,9 +229,13 @@ export function MessageThread({
             data={messages}
             // Enable stable scroll position when prepending older messages
             firstItemIndex={firstItemIndex}
-            // Start at bottom on initial load
+            // Start at target index during navigation, or bottom on initial load
             initialTopMostItemIndex={
-              messages.length > 0 ? messages.length - 1 : 0
+              initialScrollIndex !== null
+                ? initialScrollIndex
+                : messages.length > 0
+                  ? messages.length - 1
+                  : 0
             }
             // Chat-style: align items to bottom when list is short
             alignToBottom={true}

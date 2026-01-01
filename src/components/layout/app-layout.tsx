@@ -9,9 +9,9 @@ function AppLayoutInner() {
   const {
     selectedConversation,
     setSelectedConversation,
-    targetMessageRowid,
+    navigationTarget,
     handleSearchResultClick,
-    handleMessageScrollComplete,
+    handleNavigationComplete,
   } = useAppNavigation();
 
   return (
@@ -23,8 +23,8 @@ function AppLayoutInner() {
       />
       <AppMainShell
         conversation={selectedConversation}
-        targetMessageRowid={targetMessageRowid}
-        onScrollComplete={handleMessageScrollComplete}
+        navigationTarget={navigationTarget}
+        onNavigationComplete={handleNavigationComplete}
       />
     </SidebarProvider>
   );

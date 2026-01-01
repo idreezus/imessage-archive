@@ -2,21 +2,21 @@ import { useState, useCallback, useEffect } from 'react';
 import { useGalleryContext } from '@/components/gallery';
 import type { Conversation } from '@/types';
 import type { SearchResultItem } from '@/types/search';
+import type { NavigationTarget } from '@/types/navigation';
 
 type UseAppNavigationReturn = {
   selectedConversation: Conversation | null;
   setSelectedConversation: (conversation: Conversation | null) => void;
-  targetMessageRowid: number | null;
+  navigationTarget: NavigationTarget | null;
   handleSearchResultClick: (result: SearchResultItem) => Promise<void>;
-  handleMessageScrollComplete: () => void;
+  handleNavigationComplete: () => void;
 };
 
 export function useAppNavigation(): UseAppNavigationReturn {
   const [selectedConversation, setSelectedConversation] =
     useState<Conversation | null>(null);
-  const [targetMessageRowid, setTargetMessageRowid] = useState<number | null>(
-    null
-  );
+  const [navigationTarget, setNavigationTarget] =
+    useState<NavigationTarget | null>(null);
 
   const gallery = useGalleryContext();
 
@@ -38,7 +38,7 @@ export function useAppNavigation(): UseAppNavigationReturn {
     gallery.closeGallery,
   ]);
 
-  // Handle clicking a search result
+  // Handle clicking a search result - sets conversation and navigation target
   const handleSearchResultClick = useCallback(
     async (result: SearchResultItem) => {
       try {
@@ -48,7 +48,12 @@ export function useAppNavigation(): UseAppNavigationReturn {
         );
         if (conversation) {
           setSelectedConversation(conversation);
-          setTargetMessageRowid(result.messageRowid);
+          // Use rowId target with fallbackDate from search result
+          setNavigationTarget({
+            type: 'rowId',
+            rowId: result.messageRowid,
+            fallbackDate: result.date,
+          });
         }
       } catch (error) {
         console.error('Failed to load conversation:', error);
@@ -57,16 +62,16 @@ export function useAppNavigation(): UseAppNavigationReturn {
     []
   );
 
-  // Clear target after navigation complete
-  const handleMessageScrollComplete = useCallback(() => {
-    setTargetMessageRowid(null);
+  // Clear navigation target after navigation completes
+  const handleNavigationComplete = useCallback(() => {
+    setNavigationTarget(null);
   }, []);
 
   return {
     selectedConversation,
     setSelectedConversation,
-    targetMessageRowid,
+    navigationTarget,
     handleSearchResultClick,
-    handleMessageScrollComplete,
+    handleNavigationComplete,
   };
 }

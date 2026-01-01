@@ -3,6 +3,7 @@ import type { VirtuosoHandle, VirtuosoGridHandle } from 'react-virtuoso';
 import type { DateIndexResponse } from '@/types/timeline';
 import type { Message } from '@/types';
 import type { GalleryGridItem } from '@/types/gallery';
+import type { NavigationTarget, NavigationResult } from '@/types/navigation';
 
 type UseTimelineNavigationOptions = {
   virtuosoRef: React.RefObject<VirtuosoHandle | VirtuosoGridHandle | null>;
@@ -10,6 +11,9 @@ type UseTimelineNavigationOptions = {
   items: Message[] | GalleryGridItem[];
   source: 'messages' | 'gallery';
   chatId: number | null;
+  // Delegate to useMessageNavigation when provided (for messages source)
+  navigateTo?: (target: NavigationTarget) => Promise<NavigationResult>;
+  // Deprecated: only used as fallback when navigateTo not provided
   setMessages?: React.Dispatch<React.SetStateAction<Message[]>>;
 };
 
@@ -19,25 +23,33 @@ type UseTimelineNavigationReturn = {
 };
 
 // Provides scroll-to-date navigation for virtuoso lists.
-// For messages, uses getMessagesAroundDate when target is not in loaded range.
+// For messages, delegates to useMessageNavigation when navigateTo is provided.
 // For gallery, finds the month header index and scrolls directly.
 export function useTimelineNavigation(
   options: UseTimelineNavigationOptions
 ): UseTimelineNavigationReturn {
-  const { virtuosoRef, dateIndex, items, source, chatId, setMessages } =
+  const { virtuosoRef, dateIndex, items, source, chatId, navigateTo, setMessages } =
     options;
 
-  // Prevent concurrent navigation requests
+  // Prevent concurrent navigation requests (for gallery and legacy fallback)
   const isNavigatingRef = useRef(false);
 
   const scrollToDate = useCallback(
     async (targetDate: number) => {
-      if (!virtuosoRef.current || !chatId || isNavigatingRef.current) return;
+      if (!virtuosoRef.current || !chatId) return;
 
-      isNavigatingRef.current = true;
+      if (source === 'messages') {
+        // Delegate to useMessageNavigation when available
+        if (navigateTo) {
+          await navigateTo({ type: 'date', date: targetDate });
+          return;
+        }
 
-      try {
-        if (source === 'messages') {
+        // Legacy fallback (for backwards compatibility during transition)
+        if (isNavigatingRef.current) return;
+        isNavigatingRef.current = true;
+
+        try {
           const messages = items as Message[];
           const ref = virtuosoRef.current as VirtuosoHandle;
 
@@ -90,8 +102,15 @@ export function useTimelineNavigation(
               });
             }
           }
-        } else {
-          // Gallery - find item closest to target date
+        } finally {
+          isNavigatingRef.current = false;
+        }
+      } else {
+        // Gallery - find item closest to target date
+        if (isNavigatingRef.current) return;
+        isNavigatingRef.current = true;
+
+        try {
           const gridItems = items as GalleryGridItem[];
           const ref = virtuosoRef.current as VirtuosoGridHandle;
 
@@ -123,12 +142,12 @@ export function useTimelineNavigation(
               align: 'start',
             });
           }
+        } finally {
+          isNavigatingRef.current = false;
         }
-      } finally {
-        isNavigatingRef.current = false;
       }
     },
-    [virtuosoRef, chatId, items, source, setMessages]
+    [virtuosoRef, chatId, items, source, navigateTo, setMessages]
   );
 
   const scrollToMonth = useCallback(
