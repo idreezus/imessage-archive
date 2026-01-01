@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import type { Attachment } from '@/types';
-import { AttachmentRenderer } from './attachment-renderer';
+import { AttachmentItem } from './attachment-item';
 import { cn } from '@/lib/utils';
 import { useAttachmentDimensions } from '@/hooks/use-attachment-dimensions';
 
@@ -23,7 +23,7 @@ export const AttachmentGrid = memo(function AttachmentGrid({
     const canOpenLightbox = attachment.type === 'image' || attachment.type === 'video';
 
     return (
-      <AttachmentRenderer
+      <AttachmentItem
         attachment={attachment}
         dimensions={attachment.localPath ? dimensions[attachment.localPath] : undefined}
         onOpenLightbox={canOpenLightbox ? () => onOpenLightbox(0) : undefined}
@@ -67,7 +67,7 @@ export const AttachmentGrid = memo(function AttachmentGrid({
 
         {/* Top image */}
         <div className="relative z-10">
-          <AttachmentRenderer
+          <AttachmentItem
             attachment={visibleAttachments[0]}
             dimensions={visibleAttachments[0].localPath ? dimensions[visibleAttachments[0].localPath] : undefined}
             onOpenLightbox={() => onOpenLightbox(0)}
@@ -103,7 +103,7 @@ export const AttachmentGrid = memo(function AttachmentGrid({
 
         return (
           <div key={attachment.rowid} className="relative">
-            <AttachmentRenderer
+            <AttachmentItem
               attachment={attachment}
               dimensions={attachment.localPath ? dimensions[attachment.localPath] : undefined}
               onOpenLightbox={canOpenLightbox ? () => onOpenLightbox(index) : undefined}

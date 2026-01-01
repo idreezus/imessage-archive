@@ -7,7 +7,7 @@ import { calculateDisplayDimensions } from '@/lib/media-utils';
 import { UnavailableAttachment } from './unavailable-attachment';
 import { AttachmentContextMenu } from './attachment-context-menu';
 
-type VideoAttachmentProps = {
+type MediaAttachmentProps = {
   attachment: Attachment;
   dimensions?: { width: number; height: number };
   onOpenLightbox?: () => void;
@@ -18,19 +18,21 @@ type VideoAttachmentProps = {
 const MAX_WIDTH = 480;
 const MAX_HEIGHT = 600;
 
-export const VideoAttachment = memo(function VideoAttachment({
+// Renders image or video media with preview thumbnail
+export const MediaAttachment = memo(function MediaAttachment({
   attachment,
   dimensions,
   onOpenLightbox,
   maxWidth = MAX_WIDTH,
   maxHeight = MAX_HEIGHT,
-}: VideoAttachmentProps) {
+}: MediaAttachmentProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
 
-  // Use preview-size thumbnail instead of loading full video
-  // Video only plays when opened in lightbox
-  const thumbnailUrl = getPreviewUrl(attachment.localPath);
+  const isVideo = attachment.type === 'video';
+
+  // Use preview-size (720px) for message view - much smaller than full resolution
+  const previewUrl = getPreviewUrl(attachment.localPath);
 
   // Calculate container dimensions from pre-fetched dimensions or fallback to placeholder
   const containerDimensions = useMemo(() => {
@@ -42,26 +44,27 @@ export const VideoAttachment = memo(function VideoAttachment({
         maxHeight
       );
     }
-    // Fallback placeholder dimensions (16:9 aspect ratio)
+    // Fallback placeholder dimensions: 4:5 for images, 16:9 for videos
+    const fallbackAspect = isVideo ? 9 / 16 : 0.8;
     return {
       width: Math.min(maxWidth * 0.6, maxWidth),
-      height: Math.min(maxWidth * 0.6 * (9/16), maxHeight),
+      height: Math.min(maxWidth * 0.6 * fallbackAspect, maxHeight),
     };
-  }, [dimensions, maxWidth, maxHeight]);
+  }, [dimensions, maxWidth, maxHeight, isVideo]);
 
   const handleLoad = useCallback(() => {
     setIsLoading(false);
   }, []);
 
   const handleError = useCallback(() => {
-    if (thumbnailUrl) {
-      markUrlFailed(thumbnailUrl);
+    if (previewUrl) {
+      markUrlFailed(previewUrl);
     }
     setError(true);
     setIsLoading(false);
-  }, [thumbnailUrl]);
+  }, [previewUrl]);
 
-  if (error || !thumbnailUrl) {
+  if (error || !previewUrl) {
     return <UnavailableAttachment attachment={attachment} />;
   }
 
@@ -70,8 +73,9 @@ export const VideoAttachment = memo(function VideoAttachment({
       <button
         onClick={onOpenLightbox}
         className={cn(
-          'relative block bg-black rounded-2xl overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-primary',
-          onOpenLightbox && 'cursor-pointer hover:opacity-90 transition-opacity'
+          'relative block focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-2xl overflow-hidden',
+          onOpenLightbox && 'cursor-pointer hover:opacity-90 transition-opacity',
+          isVideo && 'bg-black'
         )}
         style={{ width: containerDimensions.width, height: containerDimensions.height }}
         disabled={!onOpenLightbox}
@@ -80,20 +84,23 @@ export const VideoAttachment = memo(function VideoAttachment({
           <div className="absolute inset-0 animate-pulse bg-muted rounded-2xl" />
         )}
         <img
-          src={thumbnailUrl}
-          alt={attachment.transferName || 'Video'}
+          src={previewUrl}
+          alt={attachment.transferName || (isVideo ? 'Video' : 'Image')}
           className={cn(
             'w-full h-full object-cover transition-opacity duration-200',
+            !isVideo && 'rounded-2xl',
             isLoading ? 'opacity-0' : 'opacity-100'
           )}
           onLoad={handleLoad}
           onError={handleError}
         />
-        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-          <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center">
-            <Play className="w-6 h-6 text-black ml-1" />
+        {isVideo && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+            <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center">
+              <Play className="w-6 h-6 text-black ml-1" />
+            </div>
           </div>
-        </div>
+        )}
       </button>
     </AttachmentContextMenu>
   );

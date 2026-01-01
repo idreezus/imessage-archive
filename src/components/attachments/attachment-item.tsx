@@ -1,24 +1,23 @@
 import { memo } from 'react';
 import type { Attachment } from '@/types';
-import { ImageAttachment } from './image-attachment';
-import { VideoAttachment } from './video-attachment';
+import { MediaAttachment } from './media-attachment';
 import { AudioAttachment } from './audio-attachment';
 import { StickerAttachment } from './sticker-attachment';
-import { DocumentAttachment } from './document-attachment';
-import { GenericAttachment } from './generic-attachment';
+import { FileAttachment } from './file-attachment';
 import { UnavailableAttachment } from './unavailable-attachment';
 
-type AttachmentRendererProps = {
+type AttachmentItemProps = {
   attachment: Attachment;
   dimensions?: { width: number; height: number };
   onOpenLightbox?: () => void;
 };
 
-export const AttachmentRenderer = memo(function AttachmentRenderer({
+// Type router that delegates to appropriate attachment renderer
+export const AttachmentItem = memo(function AttachmentItem({
   attachment,
   dimensions,
   onOpenLightbox,
-}: AttachmentRendererProps) {
+}: AttachmentItemProps) {
   // If no local path, show unavailable
   if (!attachment.localPath) {
     return <UnavailableAttachment attachment={attachment} />;
@@ -26,17 +25,9 @@ export const AttachmentRenderer = memo(function AttachmentRenderer({
 
   switch (attachment.type) {
     case 'image':
-      return (
-        <ImageAttachment
-          attachment={attachment}
-          dimensions={dimensions}
-          onOpenLightbox={onOpenLightbox}
-        />
-      );
-
     case 'video':
       return (
-        <VideoAttachment
+        <MediaAttachment
           attachment={attachment}
           dimensions={dimensions}
           onOpenLightbox={onOpenLightbox}
@@ -53,9 +44,7 @@ export const AttachmentRenderer = memo(function AttachmentRenderer({
       return <StickerAttachment attachment={attachment} />;
 
     case 'document':
-      return <DocumentAttachment attachment={attachment} />;
-
     default:
-      return <GenericAttachment attachment={attachment} />;
+      return <FileAttachment attachment={attachment} />;
   }
 });

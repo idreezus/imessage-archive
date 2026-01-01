@@ -8,7 +8,7 @@ import {
   EmptyTitle,
   EmptyDescription,
 } from '@/components/ui/empty';
-import { MessageBubble } from '@/components/messages';
+import { MessageItem } from '@/components/messages';
 import { ConversationHeader } from '@/components/conversations/conversation-header';
 import { TimelineScrubber } from '@/components/timeline';
 import { useMessages } from '@/hooks/use-messages';
@@ -162,7 +162,7 @@ export function MessageThread({
 
       return (
         <div className="pb-4 px-4">
-          <MessageBubble
+          <MessageItem
             message={message}
             showTimestamp={showTimestamp}
             isGroupChat={conversation?.isGroup ?? false}

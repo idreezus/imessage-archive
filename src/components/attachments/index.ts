@@ -1,9 +1,7 @@
-export { AttachmentRenderer } from './attachment-renderer';
+export { AttachmentItem } from './attachment-item';
 export { AttachmentGrid } from './attachment-grid';
-export { ImageAttachment } from './image-attachment';
-export { VideoAttachment } from './video-attachment';
+export { MediaAttachment } from './media-attachment';
+export { FileAttachment } from './file-attachment';
 export { AudioAttachment } from './audio-attachment';
 export { StickerAttachment } from './sticker-attachment';
-export { DocumentAttachment } from './document-attachment';
-export { GenericAttachment } from './generic-attachment';
 export { UnavailableAttachment } from './unavailable-attachment';
