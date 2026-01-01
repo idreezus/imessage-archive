@@ -116,7 +116,6 @@ export type GalleryFilters = {
     to: Date | null;
     preset: GalleryDatePreset | null;
   };
-  specificChat: number | null;
 };
 
 // Date presets for gallery filtering
@@ -131,22 +130,8 @@ export const defaultGalleryFilters: GalleryFilters = {
     to: null,
     preset: null,
   },
-  specificChat: null,
 };
 
 // Gallery sort options
 export type GallerySortBy = 'date' | 'size' | 'type';
 export type GallerySortOrder = 'asc' | 'desc';
-
-// Grid item type for virtualized list (includes month headers)
-export type GalleryGridItem =
-  | { type: 'header'; monthKey: string; label: string }
-  | { type: 'attachment'; data: GalleryAttachment };
-
-// Month group for chat-scoped view
-export type MonthGroup = {
-  monthKey: string;
-  label: string;
-  attachments: GalleryAttachment[];
-  startIndex: number;
-};

@@ -11,7 +11,6 @@ import {
   SearchResultsPanel,
   useSearchContext,
 } from '@/components/search';
-import { useGalleryContext } from '@/components/gallery';
 import type { Conversation } from '@/types';
 import type { SearchResultItem } from '@/types/search';
 
@@ -19,15 +18,16 @@ type AppSidebarProps = {
   selectedId: number | null;
   onSelectConversation: (conversation: Conversation | null) => void;
   onSearchResultClick: (result: SearchResultItem) => void;
+  onOpenGallery: () => void;
 };
 
 export function AppSidebar({
   selectedId,
   onSelectConversation,
   onSearchResultClick,
+  onOpenGallery,
 }: AppSidebarProps) {
   const search = useSearchContext();
-  const gallery = useGalleryContext();
 
   return (
     <Sidebar className="border-r">
@@ -37,7 +37,7 @@ export function AppSidebar({
           <Button
             variant="ghost"
             size="icon-sm"
-            onClick={() => gallery.openGallery()}
+            onClick={onOpenGallery}
             aria-label="Open gallery"
           >
             <Images className="size-5" />

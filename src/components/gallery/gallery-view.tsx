@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef } from 'react';
+import { memo, useCallback, useMemo, useRef, useEffect } from 'react';
 import {
   VirtuosoGrid,
   type VirtuosoGridHandle,
@@ -6,15 +6,17 @@ import {
   type ScrollSeekConfiguration,
 } from 'react-virtuoso';
 import { useRenderTiming, log } from '@/lib/perf';
-import { useGalleryContext } from './gallery-context';
+import { useGalleryAttachments } from '@/hooks/use-gallery-attachments';
+import { useGalleryNavigation } from '@/hooks/use-gallery-navigation';
+import { useLightbox } from '@/hooks/use-lightbox';
+import { useDateIndex } from '@/hooks/use-date-index';
+import { useVisibleDateRange } from '@/hooks/use-visible-date-range';
 import { GalleryHeader } from './gallery-header';
 import { GalleryThumbnail } from './gallery-thumbnail';
 import { GalleryEmpty } from './gallery-empty';
 import { Lightbox } from '@/components/lightbox';
 import { TimelineScrubber } from '@/components/timeline';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useDateIndex } from '@/hooks/use-date-index';
-import { useVisibleDateRange } from '@/hooks/use-visible-date-range';
 import type { GalleryAttachment } from '@/types/gallery';
 import type { TimelineTick } from '@/types/timeline';
 
@@ -64,35 +66,57 @@ const scrollSeekConfig: ScrollSeekConfiguration = {
 };
 
 type GalleryViewProps = {
+  chatId: number | null;
+  chatDisplayName: string | null;
+  onClose: () => void;
   onFindInChat?: (chatId: number, messageId: number) => void;
 };
 
 export const GalleryView = memo(function GalleryView({
+  chatId,
+  chatDisplayName,
+  onClose,
   onFindInChat,
 }: GalleryViewProps) {
+  // VirtuosoGrid ref for programmatic scrolling
+  const virtuosoGridRef = useRef<VirtuosoGridHandle>(null);
+
+  const isGlobalView = chatId === null;
+
+  // Data fetching hook
   const {
     attachments,
     stats,
     isLoading,
     hasMore,
-    hasMoreBefore,
     loadMore,
     loadEarlier,
-    navigateToDate,
-    chatId,
-    chatDisplayName,
-    closeGallery,
+    filters,
     isFiltered,
-    lightboxOpen,
-    lightboxIndex,
-    openLightbox,
-    closeLightbox,
-  } = useGalleryContext();
+    setTypeFilter,
+    setDirection,
+    setDateRange,
+    sortBy,
+    sortOrder,
+    setSortBy,
+    toggleSortOrder,
+    reset,
+    setAttachments,
+    setHasMore,
+  } = useGalleryAttachments({
+    chatId,
+    enabled: true,
+  });
 
-  // VirtuosoGrid ref for programmatic scrolling
-  const virtuosoGridRef = useRef<VirtuosoGridHandle>(null);
-
-  const isGlobalView = chatId === null;
+  // Navigation hook
+  const { navigateToDate } = useGalleryNavigation({
+    virtuosoGridRef,
+    attachments,
+    chatId,
+    setAttachments,
+    setHasMore,
+    filters,
+  });
 
   // Track render performance
   useRenderTiming('GalleryView', {
@@ -115,13 +139,7 @@ export const GalleryView = memo(function GalleryView({
   // Handle timeline tick click - navigate to date using API
   const handleTimelineTickClick = useCallback(
     async (tick: TimelineTick) => {
-      const targetIndex = await navigateToDate(tick.date);
-      if (targetIndex !== undefined && virtuosoGridRef.current) {
-        virtuosoGridRef.current.scrollToIndex({
-          index: targetIndex,
-          align: 'start',
-        });
-      }
+      await navigateToDate(tick.date);
     },
     [navigateToDate]
   );
@@ -145,6 +163,10 @@ export const GalleryView = memo(function GalleryView({
       }));
   }, [attachments]);
 
+  // Lightbox hook
+  const { lightboxOpen, lightboxIndex, openLightbox, closeLightbox } =
+    useLightbox(lightboxAttachments);
+
   // Handle thumbnail click
   const handleThumbnailClick = useCallback(
     (index: number) => {
@@ -165,17 +187,17 @@ export const GalleryView = memo(function GalleryView({
 
   // Handle load more (scroll down)
   const handleEndReached = useCallback(() => {
-    if (hasMore && !isLoading) {
+    if (hasMore.after && !isLoading) {
       loadMore();
     }
-  }, [hasMore, isLoading, loadMore]);
+  }, [hasMore.after, isLoading, loadMore]);
 
   // Handle load earlier (scroll up) - bidirectional scrolling
   const handleStartReached = useCallback(() => {
-    if (hasMoreBefore && !isLoading) {
+    if (hasMore.before && !isLoading) {
       loadEarlier();
     }
-  }, [hasMoreBefore, isLoading, loadEarlier]);
+  }, [hasMore.before, isLoading, loadEarlier]);
 
   // Track scroll range changes for performance analysis and timeline scrubber
   const lastRangeRef = useRef<ListRange | null>(null);
@@ -219,6 +241,13 @@ export const GalleryView = memo(function GalleryView({
     [attachments, handleThumbnailClick, onFindInChat]
   );
 
+  // Reset gallery state when unmounting
+  useEffect(() => {
+    return () => {
+      reset();
+    };
+  }, [reset]);
+
   // Initial loading state
   if (isLoading && attachments.length === 0) {
     return (
@@ -227,7 +256,16 @@ export const GalleryView = memo(function GalleryView({
           stats={null}
           isLoading={true}
           chatDisplayName={chatDisplayName}
-          onClose={closeGallery}
+          onClose={onClose}
+          filters={filters}
+          isFiltered={isFiltered}
+          sortBy={sortBy}
+          sortOrder={sortOrder}
+          onTypeFilter={setTypeFilter}
+          onDirection={setDirection}
+          onDateRange={setDateRange}
+          onSortBy={setSortBy}
+          onToggleSortOrder={toggleSortOrder}
         />
         <LoadingSkeleton />
       </div>
@@ -242,7 +280,16 @@ export const GalleryView = memo(function GalleryView({
           stats={stats}
           isLoading={isLoading}
           chatDisplayName={chatDisplayName}
-          onClose={closeGallery}
+          onClose={onClose}
+          filters={filters}
+          isFiltered={isFiltered}
+          sortBy={sortBy}
+          sortOrder={sortOrder}
+          onTypeFilter={setTypeFilter}
+          onDirection={setDirection}
+          onDateRange={setDateRange}
+          onSortBy={setSortBy}
+          onToggleSortOrder={toggleSortOrder}
         />
         <div className="flex-1 flex items-center justify-center">
           <GalleryEmpty isFiltered={isFiltered} isGlobalView={isGlobalView} />
@@ -257,7 +304,16 @@ export const GalleryView = memo(function GalleryView({
         stats={stats}
         isLoading={isLoading}
         chatDisplayName={chatDisplayName}
-        onClose={closeGallery}
+        onClose={onClose}
+        filters={filters}
+        isFiltered={isFiltered}
+        sortBy={sortBy}
+        sortOrder={sortOrder}
+        onTypeFilter={setTypeFilter}
+        onDirection={setDirection}
+        onDateRange={setDateRange}
+        onSortBy={setSortBy}
+        onToggleSortOrder={toggleSortOrder}
       />
 
       {/* Grid */}
@@ -274,7 +330,11 @@ export const GalleryView = memo(function GalleryView({
           rangeChanged={handleRangeChanged}
           scrollSeekConfiguration={scrollSeekConfig}
           style={{ height: '100%' }}
-          context={{ attachments, hasMore, onThumbnailClick: handleThumbnailClick }}
+          context={{
+            attachments,
+            hasMore: hasMore.after,
+            onThumbnailClick: handleThumbnailClick,
+          }}
           computeItemKey={(index, _data, ctx) => {
             const attachment = ctx.attachments[index];
             return attachment ? `att-${attachment.rowid}` : `att-${index}`;

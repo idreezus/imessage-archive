@@ -3,6 +3,7 @@ import { Play } from 'lucide-react';
 import type { Attachment } from '@/types';
 import { cn } from '@/lib/utils';
 import { getPreviewUrl, markUrlFailed } from '@/lib/attachment-url';
+import { calculateDisplayDimensions } from '@/lib/media-utils';
 import { UnavailableAttachment } from './unavailable-attachment';
 import { AttachmentContextMenu } from './attachment-context-menu';
 
@@ -16,36 +17,6 @@ type VideoAttachmentProps = {
 
 const MAX_WIDTH = 480;
 const MAX_HEIGHT = 600;
-
-// Calculate display dimensions while strictly maintaining aspect ratio
-function calculateDisplayDimensions(
-  naturalWidth: number,
-  naturalHeight: number,
-  maxWidth: number,
-  maxHeight: number
-): { width: number; height: number } {
-  if (naturalWidth === 0 || naturalHeight === 0) {
-    return { width: maxWidth * 0.6, height: maxHeight * 0.6 };
-  }
-
-  const aspectRatio = naturalWidth / naturalHeight;
-  let width = naturalWidth;
-  let height = naturalHeight;
-
-  // Scale down if exceeds max width (maintain aspect ratio)
-  if (width > maxWidth) {
-    width = maxWidth;
-    height = Math.round(width / aspectRatio);
-  }
-
-  // Scale down further if still exceeds max height (maintain aspect ratio)
-  if (height > maxHeight) {
-    height = maxHeight;
-    width = Math.round(height * aspectRatio);
-  }
-
-  return { width, height };
-}
 
 export const VideoAttachment = memo(function VideoAttachment({
   attachment,

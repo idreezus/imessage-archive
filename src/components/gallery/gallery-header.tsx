@@ -3,13 +3,34 @@ import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { GalleryFiltersPopover } from './gallery-filters-popover';
-import type { GalleryStats } from '@/types/gallery';
+import type {
+  GalleryStats,
+  GalleryFilters,
+  GallerySortBy,
+  GallerySortOrder,
+  GalleryDatePreset,
+} from '@/types/gallery';
+import type { AttachmentType } from '@/types';
 
 type GalleryHeaderProps = {
   stats: GalleryStats | null;
   isLoading: boolean;
   chatDisplayName: string | null;
   onClose: () => void;
+  // Filter props to pass through to GalleryFiltersPopover
+  filters: GalleryFilters;
+  isFiltered: boolean;
+  sortBy: GallerySortBy;
+  sortOrder: GallerySortOrder;
+  onTypeFilter: (types: AttachmentType[] | 'all') => void;
+  onDirection: (direction: 'all' | 'sent' | 'received') => void;
+  onDateRange: (
+    range:
+      | { from: Date | null; to: Date | null; preset: GalleryDatePreset | null }
+      | GalleryDatePreset
+  ) => void;
+  onSortBy: (sort: GallerySortBy) => void;
+  onToggleSortOrder: () => void;
 };
 
 function formatStats(stats: GalleryStats): string {
@@ -26,6 +47,15 @@ export const GalleryHeader = memo(function GalleryHeader({
   isLoading,
   chatDisplayName,
   onClose,
+  filters,
+  isFiltered,
+  sortBy,
+  sortOrder,
+  onTypeFilter,
+  onDirection,
+  onDateRange,
+  onSortBy,
+  onToggleSortOrder,
 }: GalleryHeaderProps) {
   return (
     <div className="sticky top-0 z-10 border-b bg-background px-4 py-3 shrink-0">
@@ -54,7 +84,17 @@ export const GalleryHeader = memo(function GalleryHeader({
           </div>
         </div>
 
-        <GalleryFiltersPopover />
+        <GalleryFiltersPopover
+          filters={filters}
+          sortBy={sortBy}
+          sortOrder={sortOrder}
+          isFiltered={isFiltered}
+          onTypeFilter={onTypeFilter}
+          onDirection={onDirection}
+          onDateRange={onDateRange}
+          onSortBy={onSortBy}
+          onToggleSortOrder={onToggleSortOrder}
+        />
       </div>
     </div>
   );

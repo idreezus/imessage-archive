@@ -1,8 +1,12 @@
 import { useState, useCallback, useEffect } from 'react';
-import { useGalleryContext } from '@/components/gallery';
 import type { Conversation } from '@/types';
 import type { SearchResultItem } from '@/types/search';
 import type { NavigationTarget } from '@/types/navigation';
+
+type GalleryConfig = {
+  chatId: number | null;
+  chatDisplayName: string | null;
+};
 
 type UseAppNavigationReturn = {
   selectedConversation: Conversation | null;
@@ -11,6 +15,11 @@ type UseAppNavigationReturn = {
   handleSearchResultClick: (result: SearchResultItem) => Promise<void>;
   handleFindInChat: (chatId: number, messageId: number) => Promise<void>;
   handleNavigationComplete: () => void;
+  // Gallery state
+  isGalleryOpen: boolean;
+  galleryConfig: GalleryConfig | null;
+  openGallery: (chatId?: number, chatName?: string) => void;
+  closeGallery: () => void;
 };
 
 export function useAppNavigation(): UseAppNavigationReturn {
@@ -19,24 +28,40 @@ export function useAppNavigation(): UseAppNavigationReturn {
   const [navigationTarget, setNavigationTarget] =
     useState<NavigationTarget | null>(null);
 
-  const gallery = useGalleryContext();
+  // Gallery state
+  const [isGalleryOpen, setIsGalleryOpen] = useState(false);
+  const [galleryConfig, setGalleryConfig] = useState<GalleryConfig | null>(
+    null
+  );
+
+  // Open gallery with optional chat context
+  const openGallery = useCallback((chatId?: number, chatName?: string) => {
+    setGalleryConfig({
+      chatId: chatId ?? null,
+      chatDisplayName: chatName ?? null,
+    });
+    setIsGalleryOpen(true);
+  }, []);
+
+  // Close gallery and reset config
+  const closeGallery = useCallback(() => {
+    setIsGalleryOpen(false);
+    setGalleryConfig(null);
+  }, []);
 
   // Auto-close gallery when navigating to a different conversation
   useEffect(() => {
-    if (gallery.isGalleryOpen && selectedConversation) {
+    if (isGalleryOpen && selectedConversation && galleryConfig?.chatId !== null) {
       // If viewing a chat-specific gallery and switching to a different chat
-      if (
-        gallery.chatId !== null &&
-        gallery.chatId !== selectedConversation.rowid
-      ) {
-        gallery.closeGallery();
+      if (galleryConfig && galleryConfig.chatId !== selectedConversation.rowid) {
+        closeGallery();
       }
     }
   }, [
     selectedConversation?.rowid,
-    gallery.isGalleryOpen,
-    gallery.chatId,
-    gallery.closeGallery,
+    isGalleryOpen,
+    galleryConfig?.chatId,
+    closeGallery,
   ]);
 
   // Handle clicking a search result - sets conversation and navigation target
@@ -68,7 +93,7 @@ export function useAppNavigation(): UseAppNavigationReturn {
     async (chatId: number, messageId: number) => {
       try {
         // Close gallery first
-        gallery.closeGallery();
+        closeGallery();
 
         // Load conversation if different from current
         if (!selectedConversation || selectedConversation.rowid !== chatId) {
@@ -88,7 +113,7 @@ export function useAppNavigation(): UseAppNavigationReturn {
         console.error('Failed to navigate to message:', error);
       }
     },
-    [gallery, selectedConversation]
+    [closeGallery, selectedConversation]
   );
 
   // Clear navigation target after navigation completes
@@ -103,5 +128,10 @@ export function useAppNavigation(): UseAppNavigationReturn {
     handleSearchResultClick,
     handleFindInChat,
     handleNavigationComplete,
+    // Gallery state
+    isGalleryOpen,
+    galleryConfig,
+    openGallery,
+    closeGallery,
   };
 }

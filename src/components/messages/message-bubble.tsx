@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 import type { Message } from '@/types';
 import { Lightbox } from '@/components/lightbox';
 import { useMessageAttachments } from '@/hooks/use-message-attachments';
-import { useMessageLightbox } from '@/hooks/use-message-lightbox';
+import { useLightbox } from '@/hooks/use-lightbox';
 import { MessageTimestamp } from '@/components/messages/message-timestamp';
 import { MessageSender } from '@/components/messages/message-sender';
 import { MessageMedia } from '@/components/messages/message-media';
@@ -42,7 +42,7 @@ export const MessageBubble = memo(function MessageBubble({
 
   // Lightbox state management
   const { lightboxOpen, lightboxIndex, openLightbox, closeLightbox } =
-    useMessageLightbox(mediaAttachments);
+    useLightbox(mediaAttachments);
 
   // Determine where reactions should appear (on last content element)
   const showReactionsOnMedia =

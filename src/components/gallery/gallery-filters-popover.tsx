@@ -28,11 +28,15 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useGalleryContext } from './gallery-context';
 import { format } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 import type { AttachmentType } from '@/types';
-import type { GalleryDatePreset } from '@/types/gallery';
+import type {
+  GalleryFilters,
+  GalleryDatePreset,
+  GallerySortBy,
+  GallerySortOrder,
+} from '@/types/gallery';
 
 const TYPE_OPTIONS: {
   value: AttachmentType;
@@ -74,19 +78,33 @@ function FilterSection({
   );
 }
 
-export const GalleryFiltersPopover = memo(function GalleryFiltersPopover() {
-  const {
-    filters,
-    isFiltered,
-    setTypeFilter,
-    setDirection,
-    setDateRange,
-    sortBy,
-    sortOrder,
-    setSortBy,
-    toggleSortOrder,
-  } = useGalleryContext();
+type GalleryFiltersPopoverProps = {
+  filters: GalleryFilters;
+  sortBy: GallerySortBy;
+  sortOrder: GallerySortOrder;
+  isFiltered: boolean;
+  onTypeFilter: (types: AttachmentType[] | 'all') => void;
+  onDirection: (direction: 'all' | 'sent' | 'received') => void;
+  onDateRange: (
+    range:
+      | { from: Date | null; to: Date | null; preset: GalleryDatePreset | null }
+      | GalleryDatePreset
+  ) => void;
+  onSortBy: (sort: GallerySortBy) => void;
+  onToggleSortOrder: () => void;
+};
 
+export const GalleryFiltersPopover = memo(function GalleryFiltersPopover({
+  filters,
+  sortBy,
+  sortOrder,
+  isFiltered,
+  onTypeFilter,
+  onDirection,
+  onDateRange,
+  onSortBy,
+  onToggleSortOrder,
+}: GalleryFiltersPopoverProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
@@ -96,20 +114,20 @@ export const GalleryFiltersPopover = memo(function GalleryFiltersPopover() {
 
   const handleTypeChange = (values: string[]) => {
     if (values.length === 0) {
-      setTypeFilter('all');
+      onTypeFilter('all');
     } else {
-      setTypeFilter(values as AttachmentType[]);
+      onTypeFilter(values as AttachmentType[]);
     }
   };
 
   const handleDatePresetChange = (preset: string) => {
     if (preset) {
-      setDateRange(preset as GalleryDatePreset);
+      onDateRange(preset as GalleryDatePreset);
     }
   };
 
   const handleCalendarSelect = (range: DateRange | undefined) => {
-    setDateRange({
+    onDateRange({
       from: range?.from ?? null,
       to: range?.to ?? null,
       preset: 'custom',
@@ -184,7 +202,7 @@ export const GalleryFiltersPopover = memo(function GalleryFiltersPopover() {
               variant="outline"
               value={filters.direction}
               onValueChange={(v) =>
-                v && setDirection(v as 'all' | 'sent' | 'received')
+                v && onDirection(v as 'all' | 'sent' | 'received')
               }
             >
               <ToggleGroupItem value="all" className="flex-1">
@@ -279,7 +297,7 @@ export const GalleryFiltersPopover = memo(function GalleryFiltersPopover() {
                     {SORT_OPTIONS.map((option) => (
                       <DropdownMenuItem
                         key={option.value}
-                        onClick={() => setSortBy(option.value)}
+                        onClick={() => onSortBy(option.value)}
                       >
                         {option.label}
                       </DropdownMenuItem>
@@ -289,7 +307,7 @@ export const GalleryFiltersPopover = memo(function GalleryFiltersPopover() {
                 <Button
                   variant="outline"
                   size="icon-sm"
-                  onClick={toggleSortOrder}
+                  onClick={onToggleSortOrder}
                   aria-label={
                     sortOrder === 'asc' ? 'Sort ascending' : 'Sort descending'
                   }

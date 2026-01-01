@@ -1,6 +1,5 @@
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { SearchProvider } from '@/components/search';
-import { GalleryProvider } from '@/components/gallery';
 import { useAppNavigation } from '@/hooks/use-app-navigation';
 import { AppSidebar } from './app-sidebar';
 import { AppMainShell } from './app-main-shell';
@@ -13,6 +12,11 @@ function AppLayoutInner() {
     handleSearchResultClick,
     handleFindInChat,
     handleNavigationComplete,
+    // Gallery state from hook
+    isGalleryOpen,
+    galleryConfig,
+    openGallery,
+    closeGallery,
   } = useAppNavigation();
 
   return (
@@ -21,12 +25,17 @@ function AppLayoutInner() {
         selectedId={selectedConversation?.rowid ?? null}
         onSelectConversation={setSelectedConversation}
         onSearchResultClick={handleSearchResultClick}
+        onOpenGallery={() => openGallery()}
       />
       <AppMainShell
         conversation={selectedConversation}
         navigationTarget={navigationTarget}
         onNavigationComplete={handleNavigationComplete}
         onFindInChat={handleFindInChat}
+        isGalleryOpen={isGalleryOpen}
+        galleryConfig={galleryConfig}
+        onCloseGallery={closeGallery}
+        onOpenGallery={openGallery}
       />
     </SidebarProvider>
   );
@@ -35,9 +44,7 @@ function AppLayoutInner() {
 export function AppLayout() {
   return (
     <SearchProvider>
-      <GalleryProvider>
-        <AppLayoutInner />
-      </GalleryProvider>
+      <AppLayoutInner />
     </SearchProvider>
   );
 }
