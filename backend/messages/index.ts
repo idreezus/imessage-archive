@@ -7,7 +7,7 @@ export type {
   Attachment,
 } from "./types";
 
-export { getMessages, getMessagesAroundDate } from "./queries";
+export { getMessages } from "./queries";
 
 export { getReactionsForMessages, processReactions } from "./reactions";
 

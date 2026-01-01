@@ -11,10 +11,8 @@ type UseTimelineNavigationOptions = {
   items: Message[] | GalleryGridItem[];
   source: 'messages' | 'gallery';
   chatId: number | null;
-  // Delegate to useMessageNavigation when provided (for messages source)
+  // Required for messages source - delegates to useMessageNavigation
   navigateTo?: (target: NavigationTarget) => Promise<NavigationResult>;
-  // Deprecated: only used as fallback when navigateTo not provided
-  setMessages?: React.Dispatch<React.SetStateAction<Message[]>>;
 };
 
 type UseTimelineNavigationReturn = {
@@ -23,15 +21,14 @@ type UseTimelineNavigationReturn = {
 };
 
 // Provides scroll-to-date navigation for virtuoso lists.
-// For messages, delegates to useMessageNavigation when navigateTo is provided.
+// For messages, delegates to useMessageNavigation.
 // For gallery, finds the month header index and scrolls directly.
 export function useTimelineNavigation(
   options: UseTimelineNavigationOptions
 ): UseTimelineNavigationReturn {
-  const { virtuosoRef, dateIndex, items, source, chatId, navigateTo, setMessages } =
-    options;
+  const { virtuosoRef, dateIndex, items, source, chatId, navigateTo } = options;
 
-  // Prevent concurrent navigation requests (for gallery and legacy fallback)
+  // Prevent concurrent navigation requests (for gallery)
   const isNavigatingRef = useRef(false);
 
   const scrollToDate = useCallback(
@@ -39,71 +36,9 @@ export function useTimelineNavigation(
       if (!virtuosoRef.current || !chatId) return;
 
       if (source === 'messages') {
-        // Delegate to useMessageNavigation when available
+        // Delegate to useMessageNavigation
         if (navigateTo) {
           await navigateTo({ type: 'date', date: targetDate });
-          return;
-        }
-
-        // Legacy fallback (for backwards compatibility during transition)
-        if (isNavigatingRef.current) return;
-        isNavigatingRef.current = true;
-
-        try {
-          const messages = items as Message[];
-          const ref = virtuosoRef.current as VirtuosoHandle;
-
-          // Check if target date is within loaded range
-          const firstDate = messages[0]?.date ?? 0;
-          const lastDate = messages[messages.length - 1]?.date ?? 0;
-
-          if (
-            messages.length > 0 &&
-            targetDate >= firstDate &&
-            targetDate <= lastDate
-          ) {
-            // Find closest message index
-            let closestIndex = 0;
-            let minDiff = Infinity;
-
-            for (let i = 0; i < messages.length; i++) {
-              const diff = Math.abs(messages[i].date - targetDate);
-              if (diff < minDiff) {
-                minDiff = diff;
-                closestIndex = i;
-              }
-            }
-
-            ref.scrollToIndex({
-              index: closestIndex,
-              align: 'center',
-              behavior: 'auto',
-            });
-          } else if (setMessages) {
-            // Target date is outside loaded range - fetch messages around it
-            const result = await window.electronAPI.getMessagesAroundDate(
-              chatId,
-              targetDate,
-              50
-            );
-
-            if (result.messages.length > 0) {
-              setMessages(result.messages);
-
-              // Wait for render, then scroll (double RAF for virtuoso)
-              requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                  ref.scrollToIndex({
-                    index: result.targetIndex,
-                    align: 'center',
-                    behavior: 'auto',
-                  });
-                });
-              });
-            }
-          }
-        } finally {
-          isNavigatingRef.current = false;
         }
       } else {
         // Gallery - find item closest to target date
@@ -147,7 +82,7 @@ export function useTimelineNavigation(
         }
       }
     },
-    [virtuosoRef, chatId, items, source, navigateTo, setMessages]
+    [virtuosoRef, chatId, items, source, navigateTo]
   );
 
   const scrollToMonth = useCallback(

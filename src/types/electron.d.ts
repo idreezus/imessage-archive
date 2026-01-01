@@ -69,17 +69,6 @@ export type ElectronAPI = {
     hasMore: { before: boolean; after: boolean };
   }>;
 
-  // Deprecated: Messages around date (for scroll-to navigation)
-  // Use getMessagesAround with type: "date" instead
-  getMessagesAroundDate: (
-    chatId: number,
-    targetDate: number,
-    contextCount?: number
-  ) => Promise<{
-    messages: Message[];
-    targetIndex: number;
-  }>;
-
   // Search API
   search: (options: SearchOptions) => Promise<SearchResponse>;
   getSearchStatus: () => Promise<SearchIndexStatus>;

@@ -47,10 +47,6 @@ export function createTrackedApi() {
       "getDatabaseStatus",
       api.getDatabaseStatus.bind(api)
     ),
-    getMessagesAroundDate: trackIpcCall(
-      "getMessagesAroundDate",
-      api.getMessagesAroundDate.bind(api)
-    ),
     search: trackIpcCall("search", api.search.bind(api)),
     getSearchStatus: trackIpcCall(
       "getSearchStatus",

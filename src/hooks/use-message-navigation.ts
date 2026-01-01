@@ -21,9 +21,6 @@ type UseMessageNavigationReturn = {
 // Highlight duration in milliseconds
 const HIGHLIGHT_DURATION_MS = 2000;
 
-// Base firstItemIndex for Virtuoso (same as use-messages.ts)
-const BASE_FIRST_ITEM_INDEX = 100000;
-
 // Unified message navigation hook for search results and timeline navigation
 // Handles both instant scroll (target in loaded range) and fetch-scroll (target not loaded)
 export function useMessageNavigation(

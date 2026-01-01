@@ -1,11 +1,6 @@
 import { isDatabaseOpen } from "../database/connection";
 import { getDatabasePath } from "../shared/paths";
-import {
-  getMessages,
-  getMessagesAroundDate,
-  getMessagesAround,
-  getDateIndex,
-} from "./queries";
+import { getMessages, getMessagesAround, getDateIndex } from "./queries";
 import { MessagesOptions, GetMessagesAroundOptions } from "./types";
 import { handleWithTiming } from "../perf";
 
@@ -32,28 +27,6 @@ export function registerMessageHandlers(): void {
     "db:get-messages-around",
     async (_event, options: GetMessagesAroundOptions) => {
       return getMessagesAround(options);
-    }
-  );
-
-  // Deprecated: Get messages around a specific date (for scroll-to navigation)
-  // Delegates to unified API for consistency. Will be removed after frontend migration.
-  handleWithTiming(
-    "db:get-messages-around-date",
-    async (
-      _event,
-      {
-        chatId,
-        targetDate,
-        contextCount,
-      }: { chatId: number; targetDate: number; contextCount?: number }
-    ) => {
-      const result = getMessagesAround({
-        chatId,
-        target: { type: "date", date: targetDate },
-        contextCount,
-      });
-      // Return old format for backwards compatibility
-      return { messages: result.messages, targetIndex: result.targetIndex };
     }
   );
 

@@ -107,11 +107,6 @@ const electronAPI = {
   getMessagesAround: (options: GetMessagesAroundOptions) =>
     ipcRenderer.invoke("db:get-messages-around", options),
 
-  // Deprecated: Get messages around a specific date (for scroll-to navigation)
-  // Use getMessagesAround with type: "date" instead
-  getMessagesAroundDate: (chatId: number, targetDate: number, contextCount?: number) =>
-    ipcRenderer.invoke("db:get-messages-around-date", { chatId, targetDate, contextCount }),
-
   // Get attachment file URL from relative path
   getAttachmentFileUrl: (relativePath: string) =>
     ipcRenderer.invoke("attachment:get-file-url", { relativePath }) as Promise<string | null>,

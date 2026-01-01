@@ -22,7 +22,8 @@
       "Bash(ls:*)",
       "Bash(time sqlite3:*)",
       "Bash(cat:*)",
-      "WebFetch(domain:virtuoso.dev)"
+      "WebFetch(domain:virtuoso.dev)",
+      "Bash(npm run lint:*)"
     ]
   }
 }
