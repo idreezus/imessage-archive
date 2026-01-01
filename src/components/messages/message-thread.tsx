@@ -85,7 +85,7 @@ export function MessageThread({
   const virtuosoRef = useRef<VirtuosoHandle>(null);
 
   // Unified message navigation hook
-  const { navigateTo, isNavigating, highlightedRowId, initialScrollIndex } = useMessageNavigation({
+  const { navigateTo, highlightedRowId } = useMessageNavigation({
     virtuosoRef,
     messages,
     chatId: conversation?.rowid ?? null,
@@ -193,8 +193,8 @@ export function MessageThread({
     );
   }
 
-  // Loading state while fetching messages for new conversation or navigating
-  const showLoading = !isDataReady || isNavigating;
+  // Loading state while fetching messages for new conversation
+  const showLoading = !isDataReady;
 
   return (
     <div className="flex flex-col h-full">
@@ -229,14 +229,8 @@ export function MessageThread({
             data={messages}
             // Enable stable scroll position when prepending older messages
             firstItemIndex={firstItemIndex}
-            // Start at target index during navigation, or bottom on initial load
-            initialTopMostItemIndex={
-              initialScrollIndex !== null
-                ? initialScrollIndex
-                : messages.length > 0
-                  ? messages.length - 1
-                  : 0
-            }
+            // Start at bottom on initial load (chat-style)
+            initialTopMostItemIndex={messages.length > 0 ? messages.length - 1 : 0}
             // Chat-style: align items to bottom when list is short
             alignToBottom={true}
             // Performance tuning

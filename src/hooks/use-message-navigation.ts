@@ -16,8 +16,6 @@ type UseMessageNavigationReturn = {
   navigateTo: (target: NavigationTarget) => Promise<NavigationResult>;
   isNavigating: boolean;
   highlightedRowId: number | null;
-  // Initial scroll index for Virtuoso (overrides default bottom position during navigation)
-  initialScrollIndex: number | null;
 };
 
 // Highlight duration in milliseconds
@@ -37,8 +35,6 @@ export function useMessageNavigation(
   // Navigation state
   const [isNavigating, setIsNavigating] = useState(false);
   const [highlightedRowId, setHighlightedRowId] = useState<number | null>(null);
-  // Override for initialTopMostItemIndex during navigation
-  const [initialScrollIndex, setInitialScrollIndex] = useState<number | null>(null);
 
   // Refs for concurrency control and cleanup
   const isNavigatingRef = useRef(false);
@@ -197,12 +193,11 @@ export function useMessageNavigation(
           return { success: false, targetRowId: null, found: false };
         }
 
-        // STEP 4: Set initial scroll index BEFORE updating messages
-        // This overrides Virtuoso's initialTopMostItemIndex so it starts at the right position
-        setInitialScrollIndex(result.targetIndex);
-
-        // Update messages state - replace entirely
+        // STEP 4: Update messages and scroll to target
         setMessages(result.messages);
+
+        // Scroll to target after Virtuoso processes new messages
+        scrollToIndexWithRAF(result.targetIndex);
 
         // Set highlight
         if (result.targetRowId !== null) {
@@ -229,13 +224,6 @@ export function useMessageNavigation(
       } finally {
         isNavigatingRef.current = false;
         setIsNavigating(false);
-        // Clear the initial scroll index override AFTER Virtuoso has mounted with the new data
-        // Using RAF to ensure the render with initialScrollIndex has completed
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            setInitialScrollIndex(null);
-          });
-        });
       }
     },
     [
@@ -257,6 +245,5 @@ export function useMessageNavigation(
     navigateTo,
     isNavigating,
     highlightedRowId,
-    initialScrollIndex,
   };
 }
